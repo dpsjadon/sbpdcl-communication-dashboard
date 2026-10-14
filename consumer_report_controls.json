@@ -1,0 +1,208 @@
+{
+  "selects": [
+    {
+      "id": "ContentPlaceHolder1_authsub_ddlReportType",
+      "name": "ctl00$ctl00$ContentPlaceHolder1$authsub$ddlReportType",
+      "options": [
+        {
+          "value": "1",
+          "text": "Master Information"
+        },
+        {
+          "value": "2",
+          "text": "NSC-Master Information"
+        },
+        {
+          "value": "3",
+          "text": "PD-Master Information"
+        },
+        {
+          "value": "4",
+          "text": "Check-Meter-Master Information"
+        },
+        {
+          "value": "5",
+          "text": "Meter Replacement Report"
+        },
+        {
+          "value": "6",
+          "text": "Consumer Life Cycle"
+        },
+        {
+          "value": "7",
+          "text": "Meter Life Cycle"
+        },
+        {
+          "value": "8",
+          "text": "Defective/Non operational"
+        },
+        {
+          "value": "9",
+          "text": "Validation Master"
+        },
+        {
+          "value": "10",
+          "text": "Meter Information"
+        },
+        {
+          "value": "11",
+          "text": "Master Sync Rejected"
+        },
+        {
+          "value": "12",
+          "text": "Master Sync Summary Report"
+        }
+      ]
+    },
+    {
+      "id": "ContentPlaceHolder1_authsub_ddlOrgOrNet",
+      "name": "ctl00$ctl00$ContentPlaceHolder1$authsub$ddlOrgOrNet",
+      "options": [
+        {
+          "value": "O",
+          "text": "Organisation"
+        },
+        {
+          "value": "N",
+          "text": "Network"
+        }
+      ]
+    },
+    {
+      "id": "ContentPlaceHolder1_authsub_ddlHierarchy",
+      "name": "ctl00$ctl00$ContentPlaceHolder1$authsub$ddlHierarchy",
+      "options": [
+        {
+          "value": "1",
+          "text": "SBPDCL"
+        },
+        {
+          "value": "2",
+          "text": "Circle"
+        },
+        {
+          "value": "3",
+          "text": "Division"
+        },
+        {
+          "value": "4",
+          "text": "Subdivision"
+        },
+        {
+          "value": "5",
+          "text": "Section"
+        }
+      ]
+    },
+    {
+      "id": "ContentPlaceHolder1_authsub_ddlOfficeNAme",
+      "name": "ctl00$ctl00$ContentPlaceHolder1$authsub$ddlOfficeNAme",
+      "options": [
+        {
+          "value": "1",
+          "text": "SBPDCL"
+        }
+      ]
+    },
+    {
+      "id": "ContentPlaceHolder1_authsub_ddlHES",
+      "name": "ctl00$ctl00$ContentPlaceHolder1$authsub$ddlHES",
+      "options": [
+        {
+          "value": "-1",
+          "text": "All"
+        },
+        {
+          "value": "4",
+          "text": "HES-Cyan"
+        },
+        {
+          "value": "6",
+          "text": "HES-Airtel"
+        }
+      ]
+    },
+    {
+      "id": "ContentPlaceHolder1_authsub_ddlMeterPhase",
+      "name": "ctl00$ctl00$ContentPlaceHolder1$authsub$ddlMeterPhase",
+      "options": [
+        {
+          "value": "-1",
+          "text": "All"
+        },
+        {
+          "value": "1",
+          "text": "1 PH"
+        },
+        {
+          "value": "2",
+          "text": "3PH WC"
+        },
+        {
+          "value": "3",
+          "text": "3PH 4CT"
+        }
+      ]
+    },
+    {
+      "id": "ContentPlaceHolder1_authsub_ddlCategory",
+      "name": "ctl00$ctl00$ContentPlaceHolder1$authsub$ddlCategory",
+      "options": [
+        {
+          "value": "-1",
+          "text": "All"
+        },
+        {
+          "value": "1",
+          "text": "Agri"
+        },
+        {
+          "value": "2",
+          "text": "Comm"
+        },
+        {
+          "value": "3",
+          "text": "Dom"
+        },
+        {
+          "value": "4",
+          "text": "EV Charging"
+        },
+        {
+          "value": "5",
+          "text": "Har Ghar Nal"
+        },
+        {
+          "value": "6",
+          "text": "Kuteer Jyoti"
+        },
+        {
+          "value": "7",
+          "text": "LT Industrial"
+        },
+        {
+          "value": "8",
+          "text": "PWW"
+        },
+        {
+          "value": "9",
+          "text": "Street Light"
+        }
+      ]
+    }
+  ],
+  "buttons": [
+    {
+      "id": "ContentPlaceHolder1_authsub_btnView",
+      "name": "ctl00$ctl00$ContentPlaceHolder1$authsub$btnView",
+      "value": "View",
+      "onclick": null
+    },
+    {
+      "id": "messagebtnstatic",
+      "name": "ctl00$ctl00$messagebtnstatic",
+      "value": ".",
+      "onclick": null
+    }
+  ]
+}

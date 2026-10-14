@@ -1,0 +1,461 @@
+{
+  "dtr1": {
+    "title": "MIS",
+    "selects": [
+      {
+        "id": "ContentPlaceHolder1_authsub_ddlReportType",
+        "name": "ctl00$ctl00$ContentPlaceHolder1$authsub$ddlReportType",
+        "options": [
+          {
+            "value": "1",
+            "text": "DTR Master Information"
+          },
+          {
+            "value": "2",
+            "text": "GET DTR Consumable Report"
+          }
+        ]
+      },
+      {
+        "id": "ContentPlaceHolder1_authsub_ddlHierarchy",
+        "name": "ctl00$ctl00$ContentPlaceHolder1$authsub$ddlHierarchy",
+        "options": [
+          {
+            "value": "1",
+            "text": "SBPDCL"
+          },
+          {
+            "value": "2",
+            "text": "Circle"
+          },
+          {
+            "value": "3",
+            "text": "Division"
+          },
+          {
+            "value": "4",
+            "text": "Subdivision"
+          },
+          {
+            "value": "5",
+            "text": "Section"
+          }
+        ]
+      },
+      {
+        "id": "ContentPlaceHolder1_authsub_ddlOfficeNAme",
+        "name": "ctl00$ctl00$ContentPlaceHolder1$authsub$ddlOfficeNAme",
+        "options": [
+          {
+            "value": "1",
+            "text": "SBPDCL"
+          }
+        ]
+      },
+      {
+        "id": "ContentPlaceHolder1_authsub_ddlDTRRating",
+        "name": "ctl00$ctl00$ContentPlaceHolder1$authsub$ddlDTRRating",
+        "options": [
+          {
+            "value": "-1",
+            "text": "All"
+          },
+          {
+            "value": "1",
+            "text": "100"
+          },
+          {
+            "value": "2",
+            "text": "16"
+          },
+          {
+            "value": "3",
+            "text": "25"
+          },
+          {
+            "value": "4",
+            "text": "63"
+          },
+          {
+            "value": "5",
+            "text": "125"
+          },
+          {
+            "value": "6",
+            "text": "160"
+          },
+          {
+            "value": "7",
+            "text": "200"
+          },
+          {
+            "value": "8",
+            "text": "250"
+          },
+          {
+            "value": "9",
+            "text": "300"
+          },
+          {
+            "value": "10",
+            "text": "315"
+          },
+          {
+            "value": "11",
+            "text": "500"
+          },
+          {
+            "value": "12",
+            "text": "630"
+          },
+          {
+            "value": "13",
+            "text": "715"
+          },
+          {
+            "value": "14",
+            "text": "750"
+          },
+          {
+            "value": "15",
+            "text": "800"
+          },
+          {
+            "value": "16",
+            "text": "1000"
+          }
+        ]
+      }
+    ],
+    "buttons": [
+      {
+        "id": "ContentPlaceHolder1_authsub_btnView",
+        "value": "View",
+        "visible": true
+      },
+      {
+        "id": "messagebtnstatic",
+        "value": ".",
+        "visible": true
+      }
+    ],
+    "tables": [
+      {
+        "id": "",
+        "rows": 1,
+        "headers": []
+      }
+    ]
+  },
+  "dtr2": {
+    "title": "MIS",
+    "selects": [
+      {
+        "id": "ContentPlaceHolder1_authsub_ddlReportType",
+        "name": "ctl00$ctl00$ContentPlaceHolder1$authsub$ddlReportType",
+        "options": [
+          {
+            "value": "1",
+            "text": "DP Data Coverage"
+          },
+          {
+            "value": "2",
+            "text": "Others Data Coverage"
+          },
+          {
+            "value": "5",
+            "text": "DP Individual DTR Raw Data"
+          },
+          {
+            "value": "6",
+            "text": "Other Individual DTR Raw Data"
+          },
+          {
+            "value": "7",
+            "text": "Individual DTR Alarm Raw Data"
+          },
+          {
+            "value": "9",
+            "text": "DTR Health Report"
+          },
+          {
+            "value": "10",
+            "text": "DTR IP RAW DATA REPORT"
+          },
+          {
+            "value": "11",
+            "text": "DTR Non Communicating REPORT"
+          },
+          {
+            "value": "12",
+            "text": "DTR Never Communicating REPORT"
+          },
+          {
+            "value": "13",
+            "text": "Monthly DTR Current Unbalance Report"
+          },
+          {
+            "value": "14",
+            "text": "DTR Utlilization Report (Overload)"
+          },
+          {
+            "value": "15",
+            "text": "Daily DTR Current Unbalance Report"
+          },
+          {
+            "value": "16",
+            "text": "DTR Health Report (Duration Based On LS)"
+          },
+          {
+            "value": "17",
+            "text": "DTR Health Report (Count Based On LS)"
+          },
+          {
+            "value": "18",
+            "text": "Individual DTR Alarm Outage Raw Data"
+          }
+        ]
+      },
+      {
+        "id": "ContentPlaceHolder1_authsub_ddlHierarchy",
+        "name": "ctl00$ctl00$ContentPlaceHolder1$authsub$ddlHierarchy",
+        "options": [
+          {
+            "value": "1",
+            "text": "SBPDCL"
+          },
+          {
+            "value": "2",
+            "text": "Circle"
+          },
+          {
+            "value": "3",
+            "text": "Division"
+          },
+          {
+            "value": "4",
+            "text": "Subdivision"
+          },
+          {
+            "value": "5",
+            "text": "Section"
+          }
+        ]
+      },
+      {
+        "id": "ContentPlaceHolder1_authsub_ddlOfficeNAme",
+        "name": "ctl00$ctl00$ContentPlaceHolder1$authsub$ddlOfficeNAme",
+        "options": [
+          {
+            "value": "1",
+            "text": "SBPDCL"
+          }
+        ]
+      }
+    ],
+    "buttons": [
+      {
+        "id": "ContentPlaceHolder1_authsub_btnView",
+        "value": "View",
+        "visible": true
+      },
+      {
+        "id": "messagebtnstatic",
+        "value": ".",
+        "visible": true
+      }
+    ],
+    "tables": [
+      {
+        "id": "",
+        "rows": 1,
+        "headers": []
+      }
+    ]
+  },
+  "fdr1": {
+    "title": "MIS",
+    "selects": [
+      {
+        "id": "ContentPlaceHolder1_authsub_ddlReportType",
+        "name": "ctl00$ctl00$ContentPlaceHolder1$authsub$ddlReportType",
+        "options": [
+          {
+            "value": "1",
+            "text": "Feeder Master Information"
+          },
+          {
+            "value": "2",
+            "text": "GET Feeder Consumable Report"
+          }
+        ]
+      },
+      {
+        "id": "ContentPlaceHolder1_authsub_ddlHierarchy",
+        "name": "ctl00$ctl00$ContentPlaceHolder1$authsub$ddlHierarchy",
+        "options": [
+          {
+            "value": "1",
+            "text": "SBPDCL"
+          },
+          {
+            "value": "2",
+            "text": "Circle"
+          },
+          {
+            "value": "3",
+            "text": "Division"
+          },
+          {
+            "value": "4",
+            "text": "Subdivision"
+          },
+          {
+            "value": "5",
+            "text": "Section"
+          }
+        ]
+      },
+      {
+        "id": "ContentPlaceHolder1_authsub_ddlOfficeNAme",
+        "name": "ctl00$ctl00$ContentPlaceHolder1$authsub$ddlOfficeNAme",
+        "options": [
+          {
+            "value": "1",
+            "text": "SBPDCL"
+          }
+        ]
+      }
+    ],
+    "buttons": [
+      {
+        "id": "ContentPlaceHolder1_authsub_btnView",
+        "value": "View",
+        "visible": true
+      },
+      {
+        "id": "messagebtnstatic",
+        "value": ".",
+        "visible": true
+      }
+    ],
+    "tables": [
+      {
+        "id": "",
+        "rows": 1,
+        "headers": []
+      }
+    ]
+  },
+  "fdr2": {
+    "title": "MIS",
+    "selects": [
+      {
+        "id": "ContentPlaceHolder1_authsub_ddlReportType",
+        "name": "ctl00$ctl00$ContentPlaceHolder1$authsub$ddlReportType",
+        "options": [
+          {
+            "value": "1",
+            "text": "DP Data Coverage"
+          },
+          {
+            "value": "2",
+            "text": "Others Data Coverage"
+          },
+          {
+            "value": "5",
+            "text": "DP Individual Feeder Raw Data"
+          },
+          {
+            "value": "6",
+            "text": "Other Individual Feeder Raw Data"
+          },
+          {
+            "value": "7",
+            "text": "Individual Feeder Alarm Raw Data"
+          },
+          {
+            "value": "9",
+            "text": "Feeder IP Raw Data Report"
+          },
+          {
+            "value": "10",
+            "text": "Feeder Health Report"
+          },
+          {
+            "value": "11",
+            "text": "Feeder Non Communicating Report"
+          },
+          {
+            "value": "12",
+            "text": "Feeder Never Communicaing Report"
+          },
+          {
+            "value": "13",
+            "text": "Individual Feeder Alarm Outage Raw Data"
+          }
+        ]
+      }
+    ],
+    "buttons": [
+      {
+        "id": "ContentPlaceHolder1_authsub_btnView",
+        "value": "View",
+        "visible": true
+      },
+      {
+        "id": "messagebtnstatic",
+        "value": ".",
+        "visible": true
+      }
+    ],
+    "tables": [
+      {
+        "id": "",
+        "rows": 1,
+        "headers": []
+      }
+    ]
+  },
+  "dlq": {
+    "title": "MIS",
+    "selects": [],
+    "buttons": [
+      {
+        "id": "ContentPlaceHolder1_authsub_btnSearch",
+        "value": "Search",
+        "visible": true
+      },
+      {
+        "id": "messagebtnstatic",
+        "value": ".",
+        "visible": true
+      }
+    ],
+    "tables": [
+      {
+        "id": "ContentPlaceHolder1_authsub_grd",
+        "rows": 18,
+        "headers": [
+          "RequestID",
+          "LoginID",
+          "ReportName",
+          "FileStatus",
+          "EntryDateTime",
+          "fileSize",
+          ""
+        ]
+      },
+      {
+        "id": "",
+        "rows": 1,
+        "headers": []
+      },
+      {
+        "id": "",
+        "rows": 1,
+        "headers": []
+      }
+    ]
+  }
+}

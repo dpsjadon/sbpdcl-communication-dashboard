@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SBPDCL - Smart Meter Non-Communication Executive Dashboard</title>
+  <meta name="description" content="Executive Dashboard for SBPDCL Smart Meter Non-Communication (>3 Days) Monitoring, Circle, Division, Section, Phase, Make, Technology and Aging Analytics.">
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Chart.js & DataLabels Plugin -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Top Navigation Bar -->
+  <header class="app-header">
+    <div class="header-left">
+      <div class="logo-badge">
+        <span class="logo-icon">⚡</span>
+      </div>
+      <div class="brand-info">
+        <div class="brand-title">
+          <h1 id="appHeaderTitle">SBPDCL Smart Meter Analytics</h1>
+          <span class="badge-status-live"><span class="pulse-dot"></span> LIVE MDMS</span>
+        </div>
+        <p class="brand-subtitle" id="appHeaderSubtitle">Consumer Smart Meter Communication &amp; Aging Executive Analytics</p>
+      </div>
+    </div>
+
+    <div class="header-right">
+      <!-- Sync Button -->
+      <button id="syncPortalBtn" class="btn btn-secondary">
+        <i data-lucide="refresh-cw" id="syncIcon"></i>
+        <span>Sync Portal Data</span>
+      </button>
+
+      <!-- Theme Toggle -->
+      <button id="themeToggleBtn" class="btn-icon" title="Toggle Light/Dark Theme">
+        <i data-lucide="sun" id="themeIcon"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="dashboard-container">
+
+    <!-- Category Switcher Strip -->
+    <section class="category-strip card">
+      <div class="category-pills">
+        <button class="category-pill active" data-category="consumer" id="catBtnConsumer">
+          <i data-lucide="users"></i>
+          <span>Consumer Meters</span>
+          <span class="cat-count-badge" id="badgeConsumerCount">1.11M</span>
+        </button>
+        <button class="category-pill" data-category="dt" id="catBtnDT">
+          <i data-lucide="zap"></i>
+          <span>DT Meters</span>
+          <span class="cat-count-badge" id="badgeDTCount">79.3K</span>
+        </button>
+        <button class="category-pill" data-category="feeder" id="catBtnFeeder">
+          <i data-lucide="activity"></i>
+          <span>Feeder Meters</span>
+          <span class="cat-count-badge" id="badgeFeederCount">3.3K</span>
+        </button>
+      </div>
+
+      <!-- Feeder Voltage & Inactive Feeder Sub-Toggle (Active only for Feeder) -->
+      <div class="feeder-voltage-toggle hidden" id="feederVoltageToggle">
+        <span class="voltage-toggle-label"><i data-lucide="gauge"></i> Voltage:</span>
+        <button class="voltage-btn active" data-voltage="ALL" id="voltBtnAll">All</button>
+        <button class="voltage-btn" data-voltage="11 KV" id="voltBtn11KV">11 KV</button>
+        <button class="voltage-btn" data-voltage="33 KV" id="voltBtn33KV">33 KV</button>
+
+        <span style="border-left: 1px solid var(--border-color); height: 16px; margin: 0 4px;"></span>
+
+        <span class="voltage-toggle-label"><i data-lucide="filter"></i> Feeders:</span>
+        <button class="inactive-toggle-btn active" data-inactive="exclude" id="btnExcludeInactive" title="Excludes 196 inactive feeders from reference file">
+          <i data-lucide="shield-check"></i> <span>Active (3,102)</span>
+        </button>
+        <button class="inactive-toggle-btn" data-inactive="include" id="btnIncludeAllFeeders" title="Include all 3,298 installed feeders">
+          <span>All (3,298)</span>
+        </button>
+        <button class="inactive-toggle-btn" data-inactive="only" id="btnInactiveOnly" title="View only 196 inactive feeders">
+          <span style="color: var(--accent-crimson);">Inactive (196)</span>
+        </button>
+      </div>
+
+      <!-- DT Inactive Sub-Toggle (Active only for DT) -->
+      <div class="feeder-voltage-toggle hidden" id="dtInactiveToggle">
+        <span class="voltage-toggle-label"><i data-lucide="filter"></i> DT Meters:</span>
+        <button class="dt-inactive-toggle-btn active" data-inactive="exclude" id="btnExcludeInactiveDT" title="Excludes 1,850 inactive DTRs from reference file">
+          <i data-lucide="shield-check"></i> <span>Active (77,461)</span>
+        </button>
+        <button class="dt-inactive-toggle-btn" data-inactive="include" id="btnIncludeAllDT" title="Include all 79,311 installed DT meters">
+          <span>All (79,311)</span>
+        </button>
+        <button class="dt-inactive-toggle-btn" data-inactive="only" id="btnInactiveOnlyDT" title="View only 1,850 inactive DTRs">
+          <span style="color: var(--accent-crimson);">Inactive (1,850)</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Global Filter Strip -->
+    <section class="filter-strip card">
+      <div class="filter-strip-header">
+        <div class="filter-title">
+          <i data-lucide="sliders-horizontal"></i>
+          <span id="filterStripTitle">Hierarchy &amp; Dimension Filters</span>
+        </div>
+        <div class="filter-actions">
+          <button id="resetFiltersBtn" class="btn-text"><i data-lucide="rotate-ccw"></i> Reset Filters</button>
+        </div>
+      </div>
+
+      <div class="filter-grid">
+        <div class="filter-group">
+          <label for="filterCircle">Circle</label>
+          <select id="filterCircle" class="form-select">
+            <option value="ALL">All Circles (SBPDCL)</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label for="filterDivision">Division</label>
+          <select id="filterDivision" class="form-select">
+            <option value="ALL">All Divisions</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label for="filterSection">Section</label>
+          <select id="filterSection" class="form-select">
+            <option value="ALL">All Sections</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label for="filterPhase" id="lblFilterPhase">Phase</label>
+          <select id="filterPhase" class="form-select">
+            <option value="ALL">All Phases</option>
+            <option value="1 PH">1 PH (Single Phase)</option>
+            <option value="3 PH">3 PH (3-Phase Combined)</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label for="filterMake">Make</label>
+          <select id="filterMake" class="form-select">
+            <option value="ALL">All Makes</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label for="filterCommunication" id="lblFilterCommunication">Communication Tech</label>
+          <select id="filterCommunication" class="form-select">
+            <option value="ALL">All Technologies</option>
+            <option value="GPRS">GPRS (HES-Airtel)</option>
+            <option value="RF">RF (HES-Cyan)</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label for="filterStatus">Communication Status</label>
+          <select id="filterStatus" class="form-select">
+            <option value="ALL">All Meters (Installed Base)</option>
+            <option value="ALL_NON_COMM">Non-Communicating</option>
+            <option value="3-7D">3 – 7 Days</option>
+            <option value=">7D">&gt; 7 Days</option>
+            <option value="COMM_LTE_3D">Communicating</option>
+            <option value="NEVER">Never Communicated</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label for="filterAging">Aging Bucket</label>
+          <select id="filterAging" class="form-select">
+            <option value="ALL">All Intervals</option>
+            <option value="<= 3 Days">&le; 3 Days (Comm)</option>
+            <option value="4 - 7 Days">4 - 7 Days</option>
+            <option value="8 - 15 Days">8 - 15 Days</option>
+            <option value="16 - 30 Days">16 - 30 Days</option>
+            <option value="31 - 60 Days">31 - 60 Days</option>
+            <option value="61 - 90 Days">61 - 90 Days</option>
+            <option value="91 - 180 Days">91 - 180 Days</option>
+            <option value="> 180 Days">&gt; 180 Days</option>
+            <option value="Never Communicated">Never Communicated</option>
+          </select>
+        </div>
+      </div>
+    </section>
+
+    <!-- Executive KPI Cards Grid (7 Core Metrics in Single Row) -->
+    <section class="kpi-grid">
+      <!-- KPI 1: Total Installation -->
+      <div class="kpi-card card">
+        <div class="kpi-header">
+          <span class="kpi-label">Total Installation</span>
+          <div class="kpi-icon-wrap icon-blue">
+            <i data-lucide="gauge"></i>
+          </div>
+        </div>
+        <div class="kpi-value-wrap">
+          <div class="kpi-value" id="kpiTotalInstalled">--</div>
+          <span class="kpi-subtext" id="kpiSubtextTotal">Consumer Smart Meters</span>
+        </div>
+        <div class="kpi-footer">
+          <span class="pill pill-blue"><i data-lucide="check-circle-2"></i> Installed Base</span>
+        </div>
+      </div>
+
+      <!-- KPI 2: Communicating -->
+      <div class="kpi-card card">
+        <div class="kpi-header">
+          <span class="kpi-label">Communicating</span>
+          <div class="kpi-icon-wrap icon-emerald">
+            <i data-lucide="radio"></i>
+          </div>
+        </div>
+        <div class="kpi-value-wrap">
+          <div class="kpi-value text-emerald" id="kpiTotalComm">--</div>
+          <span class="kpi-subtext" id="kpiSubtextComm">Active within 3 days</span>
+        </div>
+        <div class="kpi-footer">
+          <span class="pill pill-emerald" id="kpiCommRatePill">--% Communication</span>
+        </div>
+      </div>
+
+      <!-- KPI 3: Non-Communicating -->
+      <div class="kpi-card card">
+        <div class="kpi-header">
+          <span class="kpi-label">Non-Communicating</span>
+          <div class="kpi-icon-wrap icon-amber">
+            <i data-lucide="alert-triangle"></i>
+          </div>
+        </div>
+        <div class="kpi-value-wrap">
+          <div class="kpi-value text-amber" id="kpiTotalNonComm">--</div>
+          <div class="kpi-split-details" id="kpiNonCommSplit">
+            <span>Airtel: --</span> • <span>Cyan: --</span>
+          </div>
+        </div>
+        <div class="kpi-footer">
+          <span class="pill pill-amber" id="kpiNonCommPctPill">--% Non-Comm</span>
+        </div>
+      </div>
+
+      <!-- KPI 4: % Communication -->
+      <div class="kpi-card card">
+        <div class="kpi-header">
+          <span class="kpi-label">% Communication</span>
+          <div class="kpi-icon-wrap icon-emerald">
+            <i data-lucide="activity"></i>
+          </div>
+        </div>
+        <div class="kpi-value-wrap">
+          <div class="kpi-value text-emerald" id="kpiCommRate">--%</div>
+          <div class="progress-bar-container">
+            <div class="progress-bar-fill" id="kpiCommRateBar" style="width: 0%;"></div>
+          </div>
+        </div>
+        <div class="kpi-footer">
+          <span class="pill pill-emerald"><i data-lucide="shield-check"></i> Target: &ge;95.0%</span>
+        </div>
+      </div>
+
+      <!-- KPI 5: 3 - 7 Days -->
+      <div class="kpi-card card">
+        <div class="kpi-header">
+          <span class="kpi-label">3 – 7 Days</span>
+          <div class="kpi-icon-wrap icon-cyan">
+            <i data-lucide="calendar"></i>
+          </div>
+        </div>
+        <div class="kpi-value-wrap">
+          <div class="kpi-value text-cyan" id="kpiNonComm4_7D">--</div>
+          <span class="kpi-subtext">Recent silent meters</span>
+        </div>
+        <div class="kpi-footer">
+          <span class="pill pill-cyan"><i data-lucide="clock"></i> 3–7 Days</span>
+        </div>
+      </div>
+
+      <!-- KPI 6: > 7 Days -->
+      <div class="kpi-card card">
+        <div class="kpi-header">
+          <span class="kpi-label">&gt; 7 Days</span>
+          <div class="kpi-icon-wrap icon-crimson">
+            <i data-lucide="alert-octagon"></i>
+          </div>
+        </div>
+        <div class="kpi-value-wrap">
+          <div class="kpi-value text-crimson" id="kpiNonCommGt7D">--</div>
+          <span class="kpi-subtext">Prolonged silent meters</span>
+        </div>
+        <div class="kpi-footer">
+          <span class="pill pill-crimson"><i data-lucide="alert-circle"></i> Critical Focus</span>
+        </div>
+      </div>
+
+      <!-- KPI 7: Never Communicated -->
+      <div class="kpi-card card interactive-kpi" id="cardNeverComm" title="Click to slice by Never Communicated meters">
+        <div class="kpi-header">
+          <span class="kpi-label">Never Communicated</span>
+          <div class="kpi-icon-wrap icon-rose">
+            <i data-lucide="wifi-off"></i>
+          </div>
+        </div>
+        <div class="kpi-value-wrap">
+          <div class="kpi-value text-rose" id="kpiNeverComm">--</div>
+          <span class="kpi-subtext">Zero communication recorded</span>
+        </div>
+        <div class="kpi-footer">
+          <span class="pill pill-rose" id="kpiNeverCommPill"><i data-lucide="wifi-off"></i> No Comm History</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tab Navigation Bar -->
+    <nav class="nav-tabs-bar">
+      <button class="nav-tab active" data-tab="tab-overview" id="navTabOverview">
+        <i data-lucide="layout-dashboard"></i> Overview
+      </button>
+      <button class="nav-tab" data-tab="tab-circle" id="navTabCircle">
+        <i data-lucide="map-pin"></i> Circle Analysis
+      </button>
+      <button class="nav-tab" data-tab="tab-division" id="navTabDivision">
+        <i data-lucide="git-branch"></i> Division Breakdown
+      </button>
+      <button class="nav-tab" data-tab="tab-section" id="navTabSection">
+        <i data-lucide="layers"></i> Section Drilldown
+      </button>
+      <button class="nav-tab" data-tab="tab-dimensions" id="navTabDimensions">
+        <i data-lucide="cpu"></i> Phase &amp; Make
+      </button>
+      <button class="nav-tab" data-tab="tab-aging" id="navTabAging">
+        <i data-lucide="hourglass"></i> Aging &amp; Technology
+      </button>
+      <button class="nav-tab" data-tab="tab-meters" id="navTabMeters">
+        <i data-lucide="list-filter"></i> Consumer Explorer
+      </button>
+    </nav>
+
+    <!-- TAB 1: EXECUTIVE OVERVIEW -->
+    <div id="tab-overview" class="tab-pane active">
+      <div class="chart-dual-grid">
+        <!-- Chart 1: Circle Comm Rate Comparison -->
+        <div class="chart-card card">
+          <div class="chart-card-header">
+            <div>
+              <h3>Circle Communication Benchmark</h3>
+              <p>Ranked communication efficiency across circles (Values shown on bars)</p>
+            </div>
+            <span class="tag tag-emerald">Target &ge;95%</span>
+          </div>
+          <div class="chart-container">
+            <canvas id="chartCircleComm"></canvas>
+          </div>
+        </div>
+
+        <!-- Chart 2: Aging Distribution -->
+        <div class="chart-card card">
+          <div class="chart-card-header">
+            <div>
+              <h3>Aging Duration Distribution</h3>
+              <p>Silent meters grouped by non-communicating duration</p>
+            </div>
+            <span class="tag tag-cyan">Silent Base</span>
+          </div>
+          <div class="chart-container">
+            <canvas id="chartAging"></canvas>
+          </div>
+        </div>
+      </div>
+
+
+    </div>
+
+    <!-- TAB 2: CIRCLE ANALYSIS -->
+    <div id="tab-circle" class="tab-pane">
+      <div class="table-card card">
+        <div class="table-header-flex">
+          <div>
+            <h3 id="circleTableTitle">Circle Performance Summary</h3>
+            <p id="circleTableSubtitle">Comprehensive analysis across all circles</p>
+          </div>
+          <div class="table-actions">
+            <button class="btn btn-sm btn-outline" onclick="exportTableToCSV('circleTable', 'circle_analysis.csv')">
+              <i data-lucide="download"></i> Export CSV
+            </button>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table id="circleTable" class="data-table">
+            <thead>
+              <tr>
+                <th>Circle</th>
+                <th>Total Installation</th>
+                <th>Communicating</th>
+                <th>Non-Communicating</th>
+                <th>% Communication</th>
+                <th>3–7 Days</th>
+                <th>&gt;7 Days</th>
+                <th>Never Communicated</th>
+              </tr>
+            </thead>
+            <tbody id="circleTableBody">
+              <!-- Rendered via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: DIVISION BREAKDOWN -->
+    <div id="tab-division" class="tab-pane">
+      <div class="table-card card">
+        <div class="table-header-flex">
+          <div>
+            <h3 id="divisionTableTitle">Division Breakdown Summary</h3>
+            <p id="divisionTableSubtitle">Division metrics with dynamic hierarchy filtering</p>
+          </div>
+          <div class="table-actions">
+            <button class="btn btn-sm btn-outline" onclick="exportTableToCSV('divisionTable', 'division_analysis.csv')">
+              <i data-lucide="download"></i> Export CSV
+            </button>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table id="divisionTable" class="data-table">
+            <thead>
+              <tr>
+                <th>Circle</th>
+                <th>Division</th>
+                <th>Total Installation</th>
+                <th>Communicating</th>
+                <th>Non-Communicating</th>
+                <th>% Communication</th>
+                <th>3–7 Days</th>
+                <th>&gt;7 Days</th>
+                <th>Never Communicated</th>
+              </tr>
+            </thead>
+            <tbody id="divisionTableBody">
+              <!-- Rendered via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 4: SECTION DRILLDOWN -->
+    <div id="tab-section" class="tab-pane">
+      <div class="table-card card">
+        <div class="table-header-flex">
+          <div>
+            <h3 id="sectionTableTitle">Section Drilldown Table</h3>
+            <p id="sectionTableSubtitle">Section-level communication tracking across SBPDCL</p>
+          </div>
+          <div class="table-actions">
+            <button class="btn btn-sm btn-outline" onclick="exportTableToCSV('sectionTable', 'section_analysis.csv')">
+              <i data-lucide="download"></i> Export CSV
+            </button>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table id="sectionTable" class="data-table">
+            <thead>
+              <tr>
+                <th>Circle</th>
+                <th>Division</th>
+                <th>Section</th>
+                <th>Total Installation</th>
+                <th>Communicating</th>
+                <th>Non-Communicating</th>
+                <th>% Communication</th>
+                <th>3–7 Days</th>
+                <th>&gt;7 Days</th>
+              </tr>
+            </thead>
+            <tbody id="sectionTableBody">
+              <!-- Rendered via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 5: PHASE / CAPACITY / VOLTAGE & MAKE -->
+    <div id="tab-dimensions" class="tab-pane">
+      <div class="table-dual-grid">
+        <!-- Dimension Table -->
+        <div class="table-card card">
+          <div class="table-header-flex">
+            <div>
+              <h3 id="tab5Table1Title">Phase-wise Analytics</h3>
+              <p id="tab5Table1Subtitle">Communication breakdown by meter phase</p>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th id="tab5Table1ColHead">Phase</th>
+                  <th>Total Installation</th>
+                  <th>Communicating</th>
+                  <th>Non-Communicating</th>
+                  <th>% Communication</th>
+                  <th>3–7 Days</th>
+                  <th>&gt;7 Days</th>
+                </tr>
+              </thead>
+              <tbody id="phaseTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Make Table -->
+        <div class="table-card card">
+          <div class="table-header-flex">
+            <div>
+              <h3>Manufacturer Make Analytics</h3>
+              <p>Communication performance grouped by meter manufacturer</p>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Manufacturer Make</th>
+                  <th>Total Installation</th>
+                  <th>Communicating</th>
+                  <th>Non-Communicating</th>
+                  <th>% Communication</th>
+                  <th>3–7 Days</th>
+                  <th>&gt;7 Days</th>
+                </tr>
+              </thead>
+              <tbody id="makeTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 6: AGING & TECHNOLOGY / ATTRIBUTES -->
+    <div id="tab-aging" class="tab-pane">
+      <div class="table-dual-grid">
+        <!-- Technology Table -->
+        <div class="table-card card">
+          <div class="table-header-flex">
+            <div>
+              <h3 id="tab6Table1Title">Technology &amp; Network Architecture</h3>
+              <p id="tab6Table1Subtitle">HES-Airtel (GPRS) vs HES-Cyan (RF) performance</p>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th id="tab6Col1">HES Source</th>
+                  <th id="tab6Col2">Technology</th>
+                  <th>Total Installation</th>
+                  <th>Communicating</th>
+                  <th>Non-Communicating</th>
+                  <th>% Communication</th>
+                  <th>3–7 Days</th>
+                  <th>&gt;7 Days</th>
+                  <th>Avg Aging (Days)</th>
+                </tr>
+              </thead>
+              <tbody id="commTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Aging Bucket Table -->
+        <div class="table-card card">
+          <div class="table-header-flex">
+            <div>
+              <h3>Aging Duration Breakdown</h3>
+              <p>Silent meters grouped by non-communication interval</p>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Aging Interval</th>
+                  <th>Meters Count</th>
+                  <th>% of Silent Base</th>
+                </tr>
+              </thead>
+              <tbody id="agingTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 7: DETAIL EXPLORER -->
+    <div id="tab-meters" class="tab-pane">
+      <div class="table-card card">
+        <div class="table-header-flex">
+          <div>
+            <h3 id="explorerHeaderTitle">Consumer Meter Explorer</h3>
+            <p id="meterCountHeader">Showing 0 of 0 matching records</p>
+          </div>
+          <div class="table-actions" style="display: flex; gap: 12px; align-items: center;">
+            <div class="search-input-wrap" style="width: 320px;">
+              <i data-lucide="search" class="search-icon"></i>
+              <input type="text" id="filterSearch" class="form-input" placeholder="Search MSN, Consumer ID, Name, Feeder, DT...">
+            </div>
+            <button id="exportFilteredMetersBtn" class="btn btn-primary">
+              <i data-lucide="file-spreadsheet"></i> <span id="exportBtnText">Export Filtered CSV</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="data-table" id="meterExplorerTable">
+            <thead id="meterExplorerThead">
+              <!-- Dynamically populated per category! -->
+            </thead>
+            <tbody id="meterExplorerTableBody">
+              <!-- Loaded via live API -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="pagination-bar">
+          <div class="pagination-info" id="paginationInfo">Page 1 of 1</div>
+          <div class="pagination-controls">
+            <button id="prevPageBtn" class="btn btn-sm btn-outline"><i data-lucide="chevron-left"></i> Previous</button>
+            <span id="currentPageSpan" class="page-number-badge">1</span>
+            <button id="nextPageBtn" class="btn btn-sm btn-outline">Next <i data-lucide="chevron-right"></i></button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Multi-Report Downloader Hub Modal -->
+  <div id="syncModal" class="modal-overlay hidden">
+    <div class="modal-content card downloader-modal">
+      <div class="modal-header">
+        <div class="modal-title">
+          <i data-lucide="download-cloud" class="text-cyan"></i>
+          <div>
+            <h3>SBPDCL MDMS Multi-Report Live Downloader Hub</h3>
+            <p style="font-size: 0.8rem; color: var(--text-secondary); margin: 0;">Download &amp; synchronize reports separately or in batch for Consumer, DT, and Feeder meters</p>
+          </div>
+        </div>
+        <button id="closeSyncModalBtn" class="btn-icon"><i data-lucide="x"></i></button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Live Status Overview Strip -->
+        <div class="downloader-status-strip">
+          <div class="status-strip-left">
+            <span id="hubTotalReportsBadge" class="report-status-badge badge-downloaded">
+              <i data-lucide="check-circle-2"></i> <span id="hubTotalCountText">All 8 Reports Downloaded &amp; Synchronized</span>
+            </span>
+            <span id="hubLastScanTime" style="font-size: 0.76rem; color: var(--text-muted); display: inline-flex; align-items: center; gap: 4px;">
+              <i data-lucide="clock"></i> Last Checked: <span id="hubLastCheckedVal">Just now</span>
+            </span>
+          </div>
+          <div class="status-strip-right">
+            <button id="btnRefreshReportStatus" class="btn btn-xs btn-outline">
+              <i data-lucide="refresh-cw"></i> Refresh Status
+            </button>
+          </div>
+        </div>
+
+        <!-- Separate Category Download Options & Batch Bar -->
+        <div class="downloader-batch-bar">
+          <div class="batch-checkboxes">
+            <span style="color: var(--text-muted); font-size: 0.8rem; margin-right: 4px;">Options:</span>
+            <button id="quickSyncConsumerBtn" class="btn btn-xs btn-cyan">
+              <i data-lucide="users"></i> <span>Download Consumer Reports</span>
+            </button>
+            <button id="quickSyncDTBtn" class="btn btn-xs btn-amber">
+              <i data-lucide="zap"></i> <span>Download DT Reports</span>
+            </button>
+            <button id="quickSyncFeederBtn" class="btn btn-xs btn-emerald">
+              <i data-lucide="activity"></i> <span>Download Feeder Reports</span>
+            </button>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <div class="batch-checkboxes">
+              <label><input type="checkbox" id="chkConsumer" checked> <span>Consumer</span></label>
+              <label><input type="checkbox" id="chkDT" checked> <span>DT</span></label>
+              <label><input type="checkbox" id="chkFeeder" checked> <span>Feeder</span></label>
+            </div>
+            <button id="btnSyncSelected" class="btn btn-sm btn-primary">
+              <i data-lucide="download-cloud"></i> <span>Sync Selected</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 3 Cards for Consumer, DT, and Feeder -->
+        <div class="downloader-grid">
+          <!-- Card 1: Consumer -->
+          <div class="downloader-card">
+            <div class="downloader-card-header">
+              <div class="downloader-card-title">
+                <i data-lucide="users" class="text-cyan"></i>
+                <span>Consumer Reports</span>
+              </div>
+              <span class="report-status-badge badge-downloaded" id="badgeStatusConsumer">2/2 Active</span>
+            </div>
+            <div class="report-item-list" id="listConsumerReports">
+              <!-- Rendered Dynamically via JS -->
+            </div>
+            <div class="downloader-card-footer">
+              <button class="btn btn-sm btn-cyan w-100" id="btnSyncConsumerOnly" style="width: 100%;">
+                <i data-lucide="download"></i> Download Consumer Reports
+              </button>
+            </div>
+          </div>
+
+          <!-- Card 2: DT Meters -->
+          <div class="downloader-card">
+            <div class="downloader-card-header">
+              <div class="downloader-card-title">
+                <i data-lucide="zap" class="text-amber"></i>
+                <span>DT Reports</span>
+              </div>
+              <span class="report-status-badge badge-downloaded" id="badgeStatusDT">3/3 Active</span>
+            </div>
+            <div class="report-item-list" id="listDTReports">
+              <!-- Rendered Dynamically via JS -->
+            </div>
+            <div class="downloader-card-footer">
+              <button class="btn btn-sm btn-amber w-100" id="btnSyncDTOnly" style="width: 100%;">
+                <i data-lucide="download"></i> Download DT Reports
+              </button>
+            </div>
+          </div>
+
+          <!-- Card 3: Feeder Meters -->
+          <div class="downloader-card">
+            <div class="downloader-card-header">
+              <div class="downloader-card-title">
+                <i data-lucide="activity" class="text-emerald"></i>
+                <span>Feeder Reports (11kV &amp; 33kV)</span>
+              </div>
+              <span class="report-status-badge badge-downloaded" id="badgeStatusFeeder">3/3 Active</span>
+            </div>
+            <div class="report-item-list" id="listFeederReports">
+              <!-- Rendered Dynamically via JS -->
+            </div>
+            <div class="downloader-card-footer">
+              <button class="btn btn-sm btn-emerald w-100" id="btnSyncFeederOnly" style="width: 100%;">
+                <i data-lucide="download"></i> Download Feeder Reports
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Live Sync Progress Bar -->
+        <div class="sync-progress-wrap">
+          <div class="sync-progress-info">
+            <span id="syncStepText">Engine idle. Ready to initiate synchronization...</span>
+            <span id="syncPctText">0%</span>
+          </div>
+          <div class="progress-bar-container">
+            <div id="syncProgressBar" class="progress-bar-fill" style="width: 0%;"></div>
+          </div>
+        </div>
+
+        <!-- Sync Console Log -->
+        <div class="sync-console" id="syncConsoleLog">
+          <div>[System] Multi-Report Downloader Hub initialized. Ready to sync.</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <span style="font-size: 0.8rem; color: var(--text-muted);">All downloaded data automatically updates DuckDB analytics.</span>
+        <button id="closeSyncModalBottomBtn" class="btn btn-secondary">Close Hub</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

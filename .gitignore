@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment, secrets, and deployment scripts
+.env
+.env.*
+git_deploy.js
+deploy_*.js
+
+# Binaries and executables
+bin/
+*.exe
+
+# Logs and screenshots
+*.log
+*.png
+
+# Downloads and temporary files
+downloads/
+downloads_temp/
+*.zip
+*.crdownload
+*.tmp
+
+# DuckDB and raw CSV data
+data/*.csv
+!data/inactive_feeders.csv
+!data/inactive_dtrs.csv
+
+# Ignore uncompressed DuckDB databases and write-ahead logs
+data/*.duckdb
+data/*.duckdb.wal
+data/temp_*.duckdb
+
+# Keep compressed seed database for cloud deployment
+data/*.gz
+!data/sbpdcl_analytics.duckdb.gz
+
+# System files
+.DS_Store
+Thumbs.db

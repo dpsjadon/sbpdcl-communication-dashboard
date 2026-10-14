@@ -1,0 +1,557 @@
+{
+  "title": "Prepaid",
+  "tables": [
+    {
+      "index": 0,
+      "id": "ContentPlaceHolder1_authsub_grd",
+      "className": "mGrid",
+      "rowCount": 4,
+      "rows": [
+        [
+          {
+            "text": "HESNAME",
+            "html": "HESNAME",
+            "links": []
+          },
+          {
+            "text": "Total Meters",
+            "html": "Total Meters",
+            "links": []
+          },
+          {
+            "text": "Communicating Today",
+            "html": "Communicating Today",
+            "links": []
+          },
+          {
+            "text": "Non Communicating <= 3 days",
+            "html": "Non Communicating &lt;= 3 days",
+            "links": []
+          },
+          {
+            "text": "Non Communicating >=4 and <=7 Days",
+            "html": "Non Communicating &gt;=4 and &lt;=7 Days",
+            "links": []
+          },
+          {
+            "text": "Non Communicating >7 Days",
+            "html": "Non Communicating &gt;7 Days",
+            "links": []
+          },
+          {
+            "text": "Never Communicated",
+            "html": "Never Communicated",
+            "links": []
+          },
+          {
+            "text": "Refreshed At",
+            "html": "Refreshed At",
+            "links": []
+          }
+        ],
+        [
+          {
+            "text": "HES-Airtel",
+            "html": "HES-Airtel",
+            "links": []
+          },
+          {
+            "text": "1074297",
+            "html": "<a href=\"javascript:__doPostBack('ctl00$ctl00$ContentPlaceHolder1$authsub$grd','Total Meters$0')\" style=\"display:inline-block;width:100%;\">1074297</a>",
+            "links": [
+              {
+                "text": "1074297",
+                "href": "javascript:__doPostBack('ctl00$ctl00$ContentPlaceHolder1$authsub$grd','Total Meters$0')",
+                "id": "",
+                "onclick": null
+              }
+            ]
+          },
+          {
+            "text": "991396",
+            "html": "<a href=\"javascript:__doPostBack('ctl00$ctl00$ContentPlaceHolder1$authsub$grd','Communicating Today^$0')\" style=\"display:inline-block;width:100%;\">991396</a>",
+            "links": [
+              {
+                "text": "991396",
+                "href": "javascript:__doPostBack('ctl00$ctl00$ContentPlaceHolder1$authsub$grd','Communicating Today^$0')",
+                "id": "",
+                "onclick": null
+              }
+            ]
+          },
+          {
+            "text": "10100",
+            "html": "<a href=\"javascript:__doPostBack('ctl00$ctl00$ContentPlaceHolder1$authsub$grd','Non Communicating &lt;= 3 days^$0')\" style=\"display:inline-block;width:100%;\">10100</a>",
+            "links": [
+              {
+                "text": "10100",
+                "href": "javascript:__doPostBack('ctl00$ctl00$ContentPlaceHolder1$authsub$grd','Non Communicating <= 3 days^$0')",
+                "id": "",
+                "onclick": null
+              }
+            ]
+          },
+          {
+            "text": "6205",
+            "html": "<a href=\"javascript:__doPostBack('ctl00$ctl00$ContentPlaceHolder1$authsub$grd','Non Communicating &gt;=4 and &lt;=7 Days^$0')\" style=\"display:inline-block;width:100%;\">6205</a>",
+            "links": [
+              {
+                "text": "6205",
+                "href": "javascript:__doPostBack('ctl00$ctl00$ContentPlaceHolder1$authsub$grd','Non Communicating >=4 and <=7 Days^$0')",
+                "id": "",
+                "onclick": null
+              }
+            ]
+          },
+          {
+            "text": "62388",
+            "html": "<a href=\"javascript:__doPostBack('ctl00$ctl00$ContentPlaceHolder1$authsub$grd','Non Communicating &gt;7 Days^$0')\" style=\"display:inline-block;width:100%;\">62388</a>",
+            "links": [
+              {
+                "text": "62388",
+                "href": "javascript:__doPostBack('ctl00$ctl00$ContentPlaceHolder1$authsub$grd','Non Communicating >7 Days^$0')",
+                "id": "",
+                "onclick": null
+              }
+            ]
+          },
+          {
+            "text": "4437",
+            "html": "<a href=\"javascript:__doPostBack('ctl00$ctl00$ContentPlaceHolder1$authsub$grd','Never Communicated^$0')\" style=\"display:inline-block;width:100%;\">4437</a>",
+            "links": [
+              {
+                "text": "4437",
+                "href": "javascript:__doPostBack('ctl00$ctl00$ContentPlaceHolder1$authsub$grd','Never Communicated^$0')",
+                "id": "",
+                "onclick": null
+              }
+            ]
+          },
+          {
+            "text": "12/10/2026 15:43:30",
+            "html": "12/10/2026 15:43:30",
+            "links": []
+          }
+        ],
+        [
+          {
+            "text": "HES-Cyan",
+            "html": "HES-Cyan",
+            "links": []
+          },
+          {
+            "text": "34118",
+            "html": "<a href=\"javascript:__doPostBack('ctl00$ctl00$ContentPlaceHolder1$authsub$grd','Total Meters$1')\" style=\"display:inline-block;width:100%;\">34118</a>",
+            "links": [
+              {
+                "text": "34118",
+                "href": "javascript:__doPostBack('ctl00$ctl00$ContentPlaceHolder1$authsub$grd','Total Meters$1')",
+                "id": "",
+                "onclick": null
+              }
+            ]
+          },
+          {
+            "text": "30019",
+            "html": "<a href=\"javascript:__doPostBack('ctl00$ctl00$ContentPlaceHolder1$authsub$grd','Communicating Today^$1')\" style=\"display:inline-block;width:100%;\">30019</a>",
+            "links": [
+              {
+                "text": "30019",
+                "href": "javascript:__doPostBack('ctl00$ctl00$ContentPlaceHolder1$authsub$grd','Communicating Today^$1')",
+                "id": "",
+                "onclick": null
+              }
+            ]
+          },
+          {
+            "text": "643",
+            "html": "<a href=\"javascript:__doPostBack('ctl00$ctl00$ContentPlaceHolder1$authsub$grd','Non Communicating &lt;= 3 days^$1')\" style=\"display:inline-block;width:100%;\">643</a>",
+            "links": [
+              {
+                "text": "643",
+                "href": "javascript:__doPostBack('ctl00$ctl00$ContentPlaceHolder1$authsub$grd','Non Communicating <= 3 days^$1')",
+                "id": "",
+                "onclick": null
+              }
+            ]
+          },
+          {
+            "text": "319",
+            "html": "<a href=\"javascript:__doPostBack('ctl00$ctl00$ContentPlaceHolder1$authsub$grd','Non Communicating &gt;=4 and &lt;=7 Days^$1')\" style=\"display:inline-block;width:100%;\">319</a>",
+            "links": [
+              {
+                "text": "319",
+                "href": "javascript:__doPostBack('ctl00$ctl00$ContentPlaceHolder1$authsub$grd','Non Communicating >=4 and <=7 Days^$1')",
+                "id": "",
+                "onclick": null
+              }
+            ]
+          },
+          {
+            "text": "3037",
+            "html": "<a href=\"javascript:__doPostBack('ctl00$ctl00$ContentPlaceHolder1$authsub$grd','Non Communicating &gt;7 Days^$1')\" style=\"display:inline-block;width:100%;\">3037</a>",
+            "links": [
+              {
+                "text": "3037",
+                "href": "javascript:__doPostBack('ctl00$ctl00$ContentPlaceHolder1$authsub$grd','Non Communicating >7 Days^$1')",
+                "id": "",
+                "onclick": null
+              }
+            ]
+          },
+          {
+            "text": "100",
+            "html": "<a href=\"javascript:__doPostBack('ctl00$ctl00$ContentPlaceHolder1$authsub$grd','Never Communicated^$1')\" style=\"display:inline-block;width:100%;\">100</a>",
+            "links": [
+              {
+                "text": "100",
+                "href": "javascript:__doPostBack('ctl00$ctl00$ContentPlaceHolder1$authsub$grd','Never Communicated^$1')",
+                "id": "",
+                "onclick": null
+              }
+            ]
+          },
+          {
+            "text": "12/10/2026 15:43:30",
+            "html": "12/10/2026 15:43:30",
+            "links": []
+          }
+        ],
+        [
+          {
+            "text": "",
+            "html": "&nbsp;",
+            "links": []
+          },
+          {
+            "text": "",
+            "html": "&nbsp;",
+            "links": []
+          },
+          {
+            "text": "",
+            "html": "&nbsp;",
+            "links": []
+          },
+          {
+            "text": "",
+            "html": "&nbsp;",
+            "links": []
+          },
+          {
+            "text": "",
+            "html": "&nbsp;",
+            "links": []
+          },
+          {
+            "text": "",
+            "html": "&nbsp;",
+            "links": []
+          },
+          {
+            "text": "",
+            "html": "&nbsp;",
+            "links": []
+          },
+          {
+            "text": "",
+            "html": "&nbsp;",
+            "links": []
+          }
+        ]
+      ]
+    },
+    {
+      "index": 1,
+      "id": "ContentPlaceHolder1_authsub_grdSevenDayComm",
+      "className": "mGrid",
+      "rowCount": 6,
+      "rows": [
+        [
+          {
+            "text": "HESNAME",
+            "html": "HESNAME",
+            "links": []
+          },
+          {
+            "text": "2026-10-05",
+            "html": "2026-10-05",
+            "links": []
+          },
+          {
+            "text": "2026-10-06",
+            "html": "2026-10-06",
+            "links": []
+          },
+          {
+            "text": "2026-10-07",
+            "html": "2026-10-07",
+            "links": []
+          },
+          {
+            "text": "2026-10-08",
+            "html": "2026-10-08",
+            "links": []
+          },
+          {
+            "text": "2026-10-09",
+            "html": "2026-10-09",
+            "links": []
+          },
+          {
+            "text": "2026-10-10",
+            "html": "2026-10-10",
+            "links": []
+          },
+          {
+            "text": "2026-10-11",
+            "html": "2026-10-11",
+            "links": []
+          }
+        ],
+        [
+          {
+            "text": "HES-Airtel (Installation_Count)",
+            "html": "HES-Airtel (Installation_Count)",
+            "links": []
+          },
+          {
+            "text": "1068246",
+            "html": "1068246",
+            "links": []
+          },
+          {
+            "text": "1071045",
+            "html": "1071045",
+            "links": []
+          },
+          {
+            "text": "1074937",
+            "html": "1074937",
+            "links": []
+          },
+          {
+            "text": "1077143",
+            "html": "1077143",
+            "links": []
+          },
+          {
+            "text": "1078886",
+            "html": "1078886",
+            "links": []
+          },
+          {
+            "text": "1080716",
+            "html": "1080716",
+            "links": []
+          },
+          {
+            "text": "1080974",
+            "html": "1080974",
+            "links": []
+          }
+        ],
+        [
+          {
+            "text": "HES-Airtel (Communication_Count)",
+            "html": "HES-Airtel (Communication_Count)",
+            "links": []
+          },
+          {
+            "text": "989721",
+            "html": "989721",
+            "links": []
+          },
+          {
+            "text": "992356",
+            "html": "992356",
+            "links": []
+          },
+          {
+            "text": "995314",
+            "html": "995314",
+            "links": []
+          },
+          {
+            "text": "997858",
+            "html": "997858",
+            "links": []
+          },
+          {
+            "text": "997819",
+            "html": "997819",
+            "links": []
+          },
+          {
+            "text": "999275",
+            "html": "999275",
+            "links": []
+          },
+          {
+            "text": "999764",
+            "html": "999764",
+            "links": []
+          }
+        ],
+        [
+          {
+            "text": "HES-Cyan (Installation_Count)",
+            "html": "HES-Cyan (Installation_Count)",
+            "links": []
+          },
+          {
+            "text": "34327",
+            "html": "34327",
+            "links": []
+          },
+          {
+            "text": "34315",
+            "html": "34315",
+            "links": []
+          },
+          {
+            "text": "34297",
+            "html": "34297",
+            "links": []
+          },
+          {
+            "text": "34282",
+            "html": "34282",
+            "links": []
+          },
+          {
+            "text": "34268",
+            "html": "34268",
+            "links": []
+          },
+          {
+            "text": "34269",
+            "html": "34269",
+            "links": []
+          },
+          {
+            "text": "34272",
+            "html": "34272",
+            "links": []
+          }
+        ],
+        [
+          {
+            "text": "HES-Cyan (Communication_Count)",
+            "html": "HES-Cyan (Communication_Count)",
+            "links": []
+          },
+          {
+            "text": "30959",
+            "html": "30959",
+            "links": []
+          },
+          {
+            "text": "30922",
+            "html": "30922",
+            "links": []
+          },
+          {
+            "text": "30902",
+            "html": "30902",
+            "links": []
+          },
+          {
+            "text": "30786",
+            "html": "30786",
+            "links": []
+          },
+          {
+            "text": "30709",
+            "html": "30709",
+            "links": []
+          },
+          {
+            "text": "30594",
+            "html": "30594",
+            "links": []
+          },
+          {
+            "text": "30391",
+            "html": "30391",
+            "links": []
+          }
+        ],
+        [
+          {
+            "text": "",
+            "html": "&nbsp;",
+            "links": []
+          },
+          {
+            "text": "",
+            "html": "&nbsp;",
+            "links": []
+          },
+          {
+            "text": "",
+            "html": "&nbsp;",
+            "links": []
+          },
+          {
+            "text": "",
+            "html": "&nbsp;",
+            "links": []
+          },
+          {
+            "text": "",
+            "html": "&nbsp;",
+            "links": []
+          },
+          {
+            "text": "",
+            "html": "&nbsp;",
+            "links": []
+          },
+          {
+            "text": "",
+            "html": "&nbsp;",
+            "links": []
+          },
+          {
+            "text": "",
+            "html": "&nbsp;",
+            "links": []
+          }
+        ]
+      ]
+    },
+    {
+      "index": 2,
+      "id": "",
+      "className": "",
+      "rowCount": 1,
+      "rows": [
+        [
+          {
+            "text": "S1.",
+            "html": "<span style=\"color:gainsboro;\">S1.</span>&nbsp;",
+            "links": []
+          },
+          {
+            "text": "Esyasoft Technologies © 2026",
+            "html": "\n\t\t\t\t\t\t\t\t\t<a href=\"http://www.esyasoft.com\" target=\"_blank\">Esyasoft Technologies</a> © 2026\n\t\t\t\t\t\t\t\t",
+            "links": [
+              {
+                "text": "Esyasoft Technologies",
+                "href": "http://www.esyasoft.com/",
+                "id": "",
+                "onclick": null
+              }
+            ]
+          },
+          {
+            "text": "",
+            "html": "\n\t\t\t\t\t\t\t\t\t<img id=\"imgDiscom\" style=\"width: 60px; height: 60px; border-radius: 50%;\" src=\"https://mdm.sbpdclinfra.in/ui/images/utility.png\" alt=\"DISCOM\">\n\t\t\t\t\t\t\t\t\t&nbsp; &nbsp;\n\t\t\t\t\t\t\t\t\t<img id=\"imgSILogo\" style=\"width: 60px; height: 30px; margin-right: 35px\" src=\"https://mdm.sbpdclinfra.in/ui/images/SILogo.png\" alt=\"System Integration\">\n\t\t\t\t\t\t\t\t",
+            "links": []
+          }
+        ]
+      ]
+    }
+  ]
+}

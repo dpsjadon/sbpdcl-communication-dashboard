@@ -1,0 +1,23 @@
+{
+  "name": "sbpdcl-communication-dashboard",
+  "version": "1.0.0",
+  "description": "SBPDCL Unified Smart Meter, DT Meter & Feeder Meter Communication Analytics Platform",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "adm-zip": "^0.6.1",
+    "cors": "^2.8.6",
+    "csv-parser": "^3.2.1",
+    "duckdb": "^1.4.4",
+    "express": "^5.3.0",
+    "puppeteer-core": "^25.13.0",
+    "xlsx": "^0.18.5"
+  }
+}
