@@ -612,6 +612,10 @@ app.get('/api/analytics/filtered', async (req, res) => {
             count(*) FILTER (WHERE is_closed = 1) as closed_tickets,
             count(*) FILTER (WHERE is_open = 1) as total_non_comm,
             count(*) FILTER (WHERE is_open = 1) as open_tickets,
+            count(*) FILTER (WHERE ticket_status = 'Pending') as pending_tickets,
+            count(*) FILTER (WHERE ticket_status = 'Notify to Discom') as notify_discom_tickets,
+            count(*) FILTER (WHERE ticket_status = 'Attended') as attended_tickets,
+            count(*) FILTER (WHERE ticket_status = 'MR Required') as mr_required_tickets,
             ROUND(count(*) FILTER (WHERE is_closed = 1) * 100.0 / NULLIF(count(*), 0), 2) as comm_pct,
             ROUND(count(*) FILTER (WHERE is_closed = 1) * 100.0 / NULLIF(count(*), 0), 2) as resolution_pct,
             ROUND(count(*) FILTER (WHERE is_open = 1) * 100.0 / NULLIF(count(*), 0), 2) as non_comm_pct,
@@ -635,6 +639,10 @@ app.get('/api/analytics/filtered', async (req, res) => {
             count(*) FILTER (WHERE is_closed = 1) as closed_tickets,
             count(*) FILTER (WHERE is_open = 1) as total_non_comm,
             count(*) FILTER (WHERE is_open = 1) as open_tickets,
+            count(*) FILTER (WHERE ticket_status = 'Pending') as pending_tickets,
+            count(*) FILTER (WHERE ticket_status = 'Notify to Discom') as notify_discom_tickets,
+            count(*) FILTER (WHERE ticket_status = 'Attended') as attended_tickets,
+            count(*) FILTER (WHERE ticket_status = 'MR Required') as mr_required_tickets,
             ROUND(count(*) FILTER (WHERE is_closed = 1) * 100.0 / NULLIF(count(*), 0), 2) as comm_pct,
             ROUND(count(*) FILTER (WHERE is_closed = 1) * 100.0 / NULLIF(count(*), 0), 2) as resolution_pct,
             ROUND(count(*) FILTER (WHERE is_open = 1) * 100.0 / NULLIF(count(*), 0), 2) as non_comm_pct,
@@ -1148,7 +1156,7 @@ app.get('/api/analytics/ticket-correlation', async (req, res) => {
 
     const where = conditions.join(' AND ');
 
-    const [kpiRows, circles, divisions, sections, commCategories, remarks] = await Promise.all([
+    const [kpiRows, circles, divisions, sections, commCategories, remarks, statusBreakdown, agingBuckets] = await Promise.all([
       // 1. Executive Correlation KPIs
       queryDuck(`
         SELECT 
@@ -1250,19 +1258,64 @@ app.get('/api/analytics/ticket-correlation', async (req, res) => {
       // 6. Remarks / Issue Categories for Non-Comm meters
       queryDuck(`
         SELECT 
-          COALESCE(c.main_remarks, 'No Ticket Raised') as main_remarks,
-          COALESCE(c.sub_remarks, '-') as sub_remarks,
+          COALESCE(c.main_remarks, 'Pending Field Action') as main_remarks,
           count(*) as count,
           count(*) FILTER (WHERE c.ticket_status = 'Pending') as pending,
           count(*) FILTER (WHERE c.ticket_status = 'Notify to Discom') as notify_discom,
           count(*) FILTER (WHERE c.ticket_status = 'Attended') as attended,
-          count(*) FILTER (WHERE c.ticket_status = 'Closed') as closed
+          count(*) FILTER (WHERE c.ticket_status = 'Closed') as closed,
+          count(*) FILTER (WHERE c.ticket_status = 'MR Required') as mr_required
         FROM smart_meter_analytics s
         JOIN temp_latest_complaint c ON s.msn = c.msn
         WHERE ${where}
-        GROUP BY c.main_remarks, c.sub_remarks
+        GROUP BY c.main_remarks
         ORDER BY count DESC
         LIMIT 50
+      `),
+
+      // 7. Status Breakdown (for Table 1 format)
+      queryDuck(`
+        SELECT 
+          c.ticket_status,
+          count(*) as count,
+          ROUND(count(*) * 100.0 / NULLIF((SELECT count(c2.ticket_no) FROM smart_meter_analytics s2 JOIN temp_latest_complaint c2 ON s2.msn = c2.msn WHERE ${where.replace(/s\./g, 's2.').replace(/c\./g, 'c2.')}), 0), 2) as pct_of_raised,
+          CASE c.ticket_status
+            WHEN 'Pending' THEN 'Ticket open in MDMS awaiting field team / technician site visit'
+            WHEN 'Notify to Discom' THEN 'Consumer premise issue flagged to Discom (Line cut, door closed, PDCO)'
+            WHEN 'Attended' THEN 'Technician has attended the site; under observation / pending closure'
+            WHEN 'Closed' THEN 'Audit Flag: Ticket closed in MDMS, yet meter is still non-communicating in HES'
+            WHEN 'MR Required' THEN 'Meter replacement recommended due to hardware/burnt failure'
+            ELSE 'Field action in progress'
+          END as status_definition
+        FROM smart_meter_analytics s
+        JOIN temp_latest_complaint c ON s.msn = c.msn
+        WHERE ${where}
+        GROUP BY c.ticket_status
+        ORDER BY count DESC
+      `),
+
+      // 8. Ticket Aging Buckets (for Table 6)
+      queryDuck(`
+        SELECT 
+          c.aging_bucket,
+          count(*) as total_count,
+          ROUND(count(*) * 100.0 / NULLIF((SELECT count(c3.ticket_no) FROM smart_meter_analytics s3 JOIN temp_latest_complaint c3 ON s3.msn = c3.msn WHERE ${where.replace(/s\./g, 's3.').replace(/c\./g, 'c3.')}), 0), 2) as pct_share,
+          count(*) FILTER (WHERE c.ticket_status = 'Pending') as pending,
+          count(*) FILTER (WHERE c.ticket_status = 'Notify to Discom') as notify_discom,
+          count(*) FILTER (WHERE c.ticket_status = 'Attended') as attended,
+          count(*) FILTER (WHERE c.ticket_status = 'Closed') as closed,
+          count(*) FILTER (WHERE c.ticket_status = 'MR Required') as mr_required
+        FROM smart_meter_analytics s
+        JOIN temp_latest_complaint c ON s.msn = c.msn
+        WHERE ${where}
+        GROUP BY c.aging_bucket
+        ORDER BY CASE c.aging_bucket 
+          WHEN '<= 2 Days' THEN 1 
+          WHEN '3 - 7 Days' THEN 2 
+          WHEN '8 - 15 Days' THEN 3 
+          WHEN '16 - 30 Days' THEN 4 
+          WHEN '> 30 Days' THEN 5 
+          ELSE 6 END
       `)
     ]);
 
@@ -1273,7 +1326,9 @@ app.get('/api/analytics/ticket-correlation', async (req, res) => {
       divisions,
       sections,
       commCategories,
-      remarks
+      remarks,
+      statusBreakdown: statusBreakdown || [],
+      agingBuckets: agingBuckets || []
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -1300,7 +1355,7 @@ app.get('/api/meters', async (req, res) => {
     if (category === 'consumer') {
       sql = `
         SELECT 
-          s.msn, s.consumer_id, s.name, s.circle, s.division, s.subdivision, s.section,
+          s.msn, REGEXP_REPLACE(s.consumer_id, '\.0+$', '') as consumer_id, s.name, s.circle, s.division, s.subdivision, s.section,
           s.feeder, s.dt_name, s.category, s.phase, s.make, s.communication_type,
           s.department as hes_source, s.installed_date,
           s.last_comm_timestamp as last_reading_time,
@@ -1355,7 +1410,7 @@ app.get('/api/meters', async (req, res) => {
       sql = `
         SELECT 
           ticket_no as msn,
-          consumer_id,
+          REGEXP_REPLACE(consumer_id, '\.0+$', '') as consumer_id,
           consumer_name as name,
           circle, division, subdivision, section,
           feeder,
@@ -1406,7 +1461,7 @@ app.get('/api/export', async (req, res) => {
       sql = `
         SELECT 
           s.msn as "Meter No (MSN)",
-          s.consumer_id as "Consumer ID",
+          REGEXP_REPLACE(s.consumer_id, '\.0+$', '') as "Consumer ID",
           s.name as "Consumer Name",
           s.circle as "Circle",
           s.division as "Division",
@@ -1439,7 +1494,7 @@ app.get('/api/export', async (req, res) => {
           s.division as "Division",
           s.section as "Section",
           s.msn as "Meter No (MSN)",
-          s.consumer_id as "Consumer ID",
+          REGEXP_REPLACE(s.consumer_id, '\.0+$', '') as "Consumer ID",
           s.name as "Consumer Name",
           s.feeder as "Feeder",
           s.dt_name as "DT Name",
@@ -1518,7 +1573,7 @@ app.get('/api/export', async (req, res) => {
           sub_station as "Sub Station",
           feeder as "Feeder",
           dtr as "DTR",
-          consumer_id as "Consumer ID",
+          REGEXP_REPLACE(consumer_id, '\.0+$', '') as "Consumer ID",
           consumer_name as "Consumer Name",
           mobile_no as "Mobile No",
           msn as "Meter No (MSN)",

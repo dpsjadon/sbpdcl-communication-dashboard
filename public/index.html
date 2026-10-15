@@ -363,32 +363,66 @@
 
     <!-- TAB 1: EXECUTIVE OVERVIEW -->
     <div id="tab-overview" class="tab-pane active">
-      <div class="chart-dual-grid">
-        <!-- Chart 1: Circle Comm Rate Comparison -->
-        <div class="chart-card card">
-          <div class="chart-card-header">
+      <div class="table-dual-grid" style="margin-bottom: 20px;">
+        <!-- Overview Table 1: Circle Benchmark Table -->
+        <div class="table-card card">
+          <div class="table-header-flex">
             <div>
-              <h3>Circle Communication Benchmark</h3>
-              <p>Ranked communication efficiency across circles (Values shown on bars)</p>
+              <h3 id="overviewT1Title">Circle Executive Benchmark</h3>
+              <p id="overviewT1Subtitle">Performance across circles (Click row to filter)</p>
             </div>
-            <span class="tag tag-emerald">Target &ge;95%</span>
+            <div class="table-actions">
+              <button class="btn btn-sm btn-outline" onclick="exportTableToCSV('overviewCircleTable', 'overview_circle_benchmark.csv')">
+                <i data-lucide="download"></i> Export CSV
+              </button>
+            </div>
           </div>
-          <div class="chart-container">
-            <canvas id="chartCircleComm"></canvas>
+          <div class="table-responsive">
+            <table id="overviewCircleTable" class="data-table">
+              <thead id="overviewCircleThead">
+                <tr>
+                  <th>Circle</th>
+                  <th class="text-right">Total Base</th>
+                  <th class="text-right">Communicating</th>
+                  <th class="text-right">Non-Comm</th>
+                  <th class="text-center">% Comm Rate</th>
+                  <th class="text-right">&gt; 7 Days</th>
+                </tr>
+              </thead>
+              <tbody id="overviewCircleTableBody">
+                <!-- Rendered dynamically -->
+              </tbody>
+            </table>
           </div>
         </div>
 
-        <!-- Chart 2: Aging Distribution -->
-        <div class="chart-card card">
-          <div class="chart-card-header">
+        <!-- Overview Table 2: Aging & Resolution Matrix Table -->
+        <div class="table-card card">
+          <div class="table-header-flex">
             <div>
-              <h3>Aging Duration Distribution</h3>
-              <p>Silent meters grouped by non-communicating duration</p>
+              <h3 id="overviewT2Title">Aging &amp; Resolution Matrix</h3>
+              <p id="overviewT2Subtitle">Classification across aging duration intervals</p>
             </div>
-            <span class="tag tag-cyan">Silent Base</span>
+            <div class="table-actions">
+              <button class="btn btn-sm btn-outline" onclick="exportTableToCSV('overviewAgingTable', 'overview_aging_matrix.csv')">
+                <i data-lucide="download"></i> Export CSV
+              </button>
+            </div>
           </div>
-          <div class="chart-container">
-            <canvas id="chartAging"></canvas>
+          <div class="table-responsive">
+            <table id="overviewAgingTable" class="data-table">
+              <thead id="overviewAgingThead">
+                <tr>
+                  <th>Aging Interval</th>
+                  <th class="text-right">Count</th>
+                  <th class="text-center">% Share</th>
+                  <th class="text-right">Action Needed</th>
+                </tr>
+              </thead>
+              <tbody id="overviewAgingTableBody">
+                <!-- Rendered dynamically -->
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -585,77 +619,156 @@
         </div>
       </div>
 
-      <!-- 4 Interactive Charts (2 Dual-Grid Sections) -->
-      <div class="chart-dual-grid" style="margin-bottom: 20px;">
-        <!-- Chart 1: Circle Ticket Coverage -->
-        <div class="chart-card card">
-          <div class="chart-card-header">
+      <!-- Interactive Tables (Matching User Executive Screenshots - No Graphs) -->
+      
+      <!-- Top Row: Table 1 (Ticket Status Breakdown) & Table 2 (Silent Duration Matrix) -->
+      <div class="table-dual-grid" style="margin-bottom: 20px;">
+        <!-- Table 1: Ticket Status Breakdown (Screenshot 1 Format) -->
+        <div class="table-card card">
+          <div class="table-header-flex">
             <div>
-              <h3>Circle Ticket Coverage Benchmark</h3>
-              <p>Tickets Raised vs Unattended Gap across Circles (% Coverage indicated on top)</p>
+              <h3>Ticket Status Breakdown</h3>
+              <p>Current lifecycle status of raised tickets for non-communicating meters (Click row to filter)</p>
             </div>
-            <span class="tag tag-blue">Coverage Benchmark</span>
+            <div class="table-actions">
+              <button class="btn btn-sm btn-outline" onclick="exportTableToCSV('corrStatusTable', 'ticket_status_breakdown.csv')">
+                <i data-lucide="download"></i> Export CSV
+              </button>
+            </div>
           </div>
-          <div class="chart-container">
-            <canvas id="chartCorrCircleCoverage"></canvas>
+          <div class="table-responsive">
+            <table id="corrStatusTable" class="data-table">
+              <thead>
+                <tr>
+                  <th>Ticket Status</th>
+                  <th class="text-right">Count</th>
+                  <th class="text-center">% of Raised</th>
+                  <th>Operational Action / Status Definition</th>
+                </tr>
+              </thead>
+              <tbody id="corrStatusTableBody">
+                <!-- Rendered dynamically -->
+              </tbody>
+            </table>
           </div>
         </div>
 
-        <!-- Chart 2: Ticket Status Distribution -->
-        <div class="chart-card card">
-          <div class="chart-card-header">
+        <!-- Table 2: Silent Duration vs Ticket Status Matrix (Screenshot 2 Format) -->
+        <div class="table-card card">
+          <div class="table-header-flex">
             <div>
-              <h3>Ticket Status Distribution (Silent Meters)</h3>
-              <p>Breakdown of current status for raised tickets on non-communicating meters</p>
+              <h3>Silent Duration Category vs Ticket Status</h3>
+              <p>Correlation by silent aging duration vs ticket raised coverage and status</p>
             </div>
-            <span class="tag tag-amber">Status Slices</span>
+            <div class="table-actions">
+              <button class="btn btn-sm btn-outline" onclick="exportTableToCSV('corrCommCatTable', 'silent_duration_matrix.csv')">
+                <i data-lucide="download"></i> Export CSV
+              </button>
+            </div>
           </div>
-          <div class="chart-container">
-            <canvas id="chartCorrStatusDonut"></canvas>
+          <div class="table-responsive">
+            <table id="corrCommCatTable" class="data-table">
+              <thead>
+                <tr>
+                  <th>Silent Duration Category</th>
+                  <th class="text-right">Total Meters</th>
+                  <th class="text-right">Tickets Raised</th>
+                  <th class="text-right">No Ticket Raised</th>
+                  <th class="text-center">Ticket Coverage %</th>
+                  <th class="text-right">Pending</th>
+                  <th class="text-right">Notify Discom</th>
+                  <th class="text-right">Attended</th>
+                  <th class="text-right">Closed (Silent)</th>
+                  <th class="text-right">MR Req</th>
+                </tr>
+              </thead>
+              <tbody id="corrCommCatTableBody">
+                <!-- Rendered dynamically -->
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
 
-      <div class="chart-dual-grid" style="margin-bottom: 20px;">
-        <!-- Chart 3: Non-Comm Duration vs Ticket Status -->
-        <div class="chart-card card">
-          <div class="chart-card-header">
+      <!-- Middle Row: Table 3 (Root Causes & Main Remarks) & Table 6 (Ticket Aging) -->
+      <div class="table-dual-grid" style="margin-bottom: 20px;">
+        <!-- Table 3: Root Cause / Main Remark Breakdown (Screenshot 3 Format) -->
+        <div class="table-card card">
+          <div class="table-header-flex">
             <div>
-              <h3>Silent Duration vs Ticket Coverage</h3>
-              <p>Tickets Raised vs Action Gap across Non-Comm duration buckets</p>
+              <h3>Root Cause / Main Remark</h3>
+              <p>Failure classification and ticket status distribution for non-communicating meters</p>
             </div>
-            <span class="tag tag-purple">Aging Breakdown</span>
+            <div class="table-actions">
+              <button class="btn btn-sm btn-outline" onclick="exportTableToCSV('corrRemarksTable', 'root_cause_remarks.csv')">
+                <i data-lucide="download"></i> Export CSV
+              </button>
+            </div>
           </div>
-          <div class="chart-container">
-            <canvas id="chartCorrAgingVsTicket"></canvas>
+          <div class="table-responsive">
+            <table id="corrRemarksTable" class="data-table">
+              <thead>
+                <tr>
+                  <th>Root Cause / Main Remark</th>
+                  <th class="text-right">Ticket Count</th>
+                  <th class="text-center">% Share</th>
+                  <th class="text-right">Pending</th>
+                  <th class="text-right">Notify Discom</th>
+                  <th class="text-right">Attended</th>
+                  <th class="text-right">Closed (Silent)</th>
+                </tr>
+              </thead>
+              <tbody id="corrRemarksTableBody">
+                <!-- Rendered dynamically -->
+              </tbody>
+            </table>
           </div>
         </div>
 
-        <!-- Chart 4: Top Issue Categories / Remarks -->
-        <div class="chart-card card">
-          <div class="chart-card-header">
+        <!-- Table 6: Ticket Aging Analysis Table -->
+        <div class="table-card card">
+          <div class="table-header-flex">
             <div>
-              <h3>Top Root Causes &amp; Issue Categories</h3>
-              <p>Most common O&amp;M Main Remarks for silent consumer meters</p>
+              <h3>Ticket Aging &amp; Backlog Analysis</h3>
+              <p>Tickets on silent meters categorized by time elapsed since ticket creation</p>
             </div>
-            <span class="tag tag-rose">Root Cause Analysis</span>
+            <div class="table-actions">
+              <button class="btn btn-sm btn-outline" onclick="exportTableToCSV('corrAgingTable', 'ticket_aging_analysis.csv')">
+                <i data-lucide="download"></i> Export CSV
+              </button>
+            </div>
           </div>
-          <div class="chart-container">
-            <canvas id="chartCorrRemarksBar"></canvas>
+          <div class="table-responsive">
+            <table id="corrAgingTable" class="data-table">
+              <thead>
+                <tr>
+                  <th>Ticket Aging Bucket</th>
+                  <th class="text-right">Total Tickets</th>
+                  <th class="text-center">% Share</th>
+                  <th class="text-right">Pending</th>
+                  <th class="text-right">Notify Discom</th>
+                  <th class="text-right">Attended</th>
+                  <th class="text-right">Closed (Silent)</th>
+                  <th class="text-right">MR Req</th>
+                </tr>
+              </thead>
+              <tbody id="corrAgingTableBody">
+                <!-- Rendered dynamically -->
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
 
-      <!-- Cross-Tabulation Tables -->
-      <!-- Table 1: Circle Ticket Correlation Table -->
+      <!-- Table 4: Circle Performance Benchmark Table (Screenshot 4 Format) -->
       <div class="table-card card" style="margin-bottom: 20px;">
         <div class="table-header-flex">
           <div>
-            <h3>Circle Ticket Correlation &amp; Action Gap Performance</h3>
-            <p>Circle-level summary of total silent meters, ticket coverage, unattended gaps, and status breakdown</p>
+            <h3>Circle Performance Benchmark</h3>
+            <p>Comprehensive ticket coverage, unattended action gap, and field status across all 7 Circles (Click row to filter)</p>
           </div>
           <div class="table-actions">
-            <button class="btn btn-sm btn-outline" onclick="exportTableToCSV('corrCircleTable', 'circle_ticket_correlation.csv')">
+            <button class="btn btn-sm btn-outline" onclick="exportTableToCSV('corrCircleTable', 'circle_ticket_benchmark.csv')">
               <i data-lucide="download"></i> Export Circle CSV
             </button>
           </div>
@@ -665,16 +778,16 @@
             <thead>
               <tr>
                 <th>Circle</th>
-                <th>Total Silent Meters</th>
-                <th>Tickets Raised</th>
-                <th>No Ticket Raised (Gap)</th>
-                <th>% Ticket Coverage</th>
-                <th>Pending Field Action</th>
-                <th>Notify to Discom</th>
-                <th>Attended</th>
-                <th>Closed (Still Silent)</th>
-                <th>MR Required</th>
-                <th>Actions</th>
+                <th class="text-right">Non-Comm Meters</th>
+                <th class="text-right">Tickets Raised</th>
+                <th class="text-right">No Ticket Raised (Gap)</th>
+                <th class="text-center">Coverage %</th>
+                <th class="text-right">Pending</th>
+                <th class="text-right">Notify Discom</th>
+                <th class="text-right">Attended</th>
+                <th class="text-right">Closed (Silent)</th>
+                <th class="text-right">MR Req</th>
+                <th class="text-center">Action</th>
               </tr>
             </thead>
             <tbody id="corrCircleTableBody"></tbody>
@@ -682,12 +795,12 @@
         </div>
       </div>
 
-      <!-- Table 2: Division Breakdown Table -->
+      <!-- Table 5: Division Breakdown & Action Gap Table -->
       <div class="table-card card" style="margin-bottom: 20px;">
         <div class="table-header-flex">
           <div>
             <h3>Division Breakdown &amp; Action Gap Table</h3>
-            <p>Division-level drilldown of ticket coverage and field action queue</p>
+            <p>Division-level drilldown across all 26 Divisions with ticket coverage and field action queue (Click row to filter)</p>
           </div>
           <div class="table-actions">
             <button class="btn btn-sm btn-outline" onclick="exportTableToCSV('corrDivisionTable', 'division_ticket_correlation.csv')">
@@ -701,15 +814,15 @@
               <tr>
                 <th>Circle</th>
                 <th>Division</th>
-                <th>Total Silent Meters</th>
-                <th>Tickets Raised</th>
-                <th>No Ticket Raised (Gap)</th>
-                <th>% Ticket Coverage</th>
-                <th>Pending Field Action</th>
-                <th>Notify to Discom</th>
-                <th>Attended</th>
-                <th>Closed (Still Silent)</th>
-                <th>MR Required</th>
+                <th class="text-right">Non-Comm Meters</th>
+                <th class="text-right">Tickets Raised</th>
+                <th class="text-right">No Ticket Raised (Gap)</th>
+                <th class="text-center">Coverage %</th>
+                <th class="text-right">Pending</th>
+                <th class="text-right">Notify Discom</th>
+                <th class="text-right">Attended</th>
+                <th class="text-right">Closed (Silent)</th>
+                <th class="text-right">MR Req</th>
               </tr>
             </thead>
             <tbody id="corrDivisionTableBody"></tbody>
@@ -717,98 +830,10 @@
         </div>
       </div>
 
-      <!-- Table 3 & 4: Dual Table Row (Duration Matrix & Root Causes) -->
-      <div class="table-dual-grid">
-        <!-- Table 3: Duration Matrix Table -->
-        <div class="table-card card">
-          <div class="table-header-flex">
-            <div>
-              <h3>Silent Duration vs Ticket Status Matrix</h3>
-              <p>Correlation by communication aging categories</p>
-            </div>
-          </div>
-          <div class="table-responsive">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Communication Category</th>
-                  <th>Total Silent Base</th>
-                  <th>Tickets Raised</th>
-                  <th>Unattended Gap</th>
-                  <th>% Coverage</th>
-                  <th>Pending</th>
-                  <th>Notify Discom</th>
-                  <th>Closed (Silent)</th>
-                </tr>
-              </thead>
-              <tbody id="corrCommCatTableBody"></tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- Table 4: Root Cause Remarks Breakdown -->
-        <div class="table-card card">
-          <div class="table-header-flex">
-            <div>
-              <h3>O&amp;M Remarks &amp; Root Cause Categories</h3>
-              <p>Detailed classification of field findings on silent meters</p>
-            </div>
-            <div class="table-actions">
-              <button class="btn btn-sm btn-outline" onclick="exportTableToCSV('corrRemarksTable', 'remarks_root_causes.csv')">
-                <i data-lucide="download"></i> Export CSV
-              </button>
-            </div>
-          </div>
-          <div class="table-responsive">
-            <table id="corrRemarksTable" class="data-table">
-              <thead>
-                <tr>
-                  <th>Main Remarks (Category)</th>
-                  <th>Sub Remarks</th>
-                  <th>Ticket Count</th>
-                  <th>Pending</th>
-                  <th>Notify Discom</th>
-                  <th>Attended</th>
-                  <th>Closed</th>
-                </tr>
-              </thead>
-              <tbody id="corrRemarksTableBody"></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
     </div>
 
     <!-- TAB 1C: DATE-WISE ANALYTICS -->
     <div id="tab-datewise" class="tab-pane">
-      <div class="chart-dual-grid" style="margin-bottom: 20px;">
-        <div class="chart-card card">
-          <div class="chart-card-header">
-            <div>
-              <h3 id="dateWiseChartTitle">Daily Ticket Creation &amp; Resolution Trend</h3>
-              <p id="dateWiseChartSubtitle">Daily volume of tickets created vs resolved</p>
-            </div>
-            <span class="tag tag-blue">Daily Volume</span>
-          </div>
-          <div class="chart-container">
-            <canvas id="chartDateTrend"></canvas>
-          </div>
-        </div>
-
-        <div class="chart-card card">
-          <div class="chart-card-header">
-            <div>
-              <h3>Daily Resolution Rate (%)</h3>
-              <p>Percentage of tickets closed on each date</p>
-            </div>
-            <span class="tag tag-emerald">Resolution %</span>
-          </div>
-          <div class="chart-container">
-            <canvas id="chartDateResolution"></canvas>
-          </div>
-        </div>
-      </div>
 
       <div class="table-card card">
         <div class="table-header-flex">

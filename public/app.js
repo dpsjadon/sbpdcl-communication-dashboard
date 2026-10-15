@@ -317,7 +317,7 @@ function renderExplorerThead() {
     thead.innerHTML = `
       <tr>
         <th>MSN</th>
-        <th>Consumer ID</th>
+        <th class="text-right">Consumer ID</th>
         <th>Consumer Name</th>
         <th>Hierarchy (Circle/Div/Sec)</th>
         <th>Feeder / DT</th>
@@ -372,7 +372,7 @@ function renderExplorerThead() {
       <tr>
         <th>Ticket No</th>
         <th>Ticket Date</th>
-        <th>Consumer ID</th>
+        <th class="text-right">Consumer ID</th>
         <th>Consumer Name</th>
         <th>Circle</th>
         <th>Division</th>
@@ -998,6 +998,7 @@ function rebuildCharts() {
 
 // --- Render Tables ---
 function renderAllTables() {
+  renderOverviewTables();
   renderDateWiseTable();
   renderCircleTable();
   renderDivisionTable();
@@ -1007,6 +1008,135 @@ function renderAllTables() {
   renderTechTable();
   renderAgingTable();
 }
+
+function renderOverviewTables() {
+  const circleBody = document.getElementById('overviewCircleTableBody');
+  const agingBody = document.getElementById('overviewAgingTableBody');
+  if (!circleBody || !agingBody) return;
+
+  const circles = state.currentData?.circles || [];
+  const isComplaint = state.category === 'complaint';
+
+  // 1. Overview Table 1: Circle Benchmark Table
+  if (circles.length === 0) {
+    circleBody.innerHTML = '<tr><td colspan="6" class="text-center" style="padding: 16px;">No circle data available</td></tr>';
+  } else {
+    let totBase = 0, totComm = 0, totNonComm = 0, totGt7 = 0;
+    const rows = circles.map(c => {
+      const base = Number(isComplaint ? (c.total_tickets || c.total_installed) : c.total_installed) || 0;
+      const comm = Number(isComplaint ? (c.closed_tickets || c.communicating) : c.communicating) || 0;
+      const nonComm = Number(isComplaint ? (c.open_tickets || c.total_non_comm) : c.total_non_comm) || 0;
+      const gt7 = Number(isComplaint ? (c.age_gt_7d || 0) : (c.comm_gt_7d || 0)) || 0;
+      const rate = Number(isComplaint ? (c.resolution_pct || c.comm_pct) : c.comm_pct) || 0;
+
+      totBase += base;
+      totComm += comm;
+      totNonComm += nonComm;
+      totGt7 += gt7;
+
+      const rateBadge = rate >= 90
+        ? `<span class="badge badge-success">${rate}%</span>`
+        : (rate >= 75 ? `<span class="badge badge-warning">${rate}%</span>` : `<span class="badge badge-crimson">${rate}%</span>`);
+
+      return `
+        <tr class="clickable-row" onclick="filterByCircle('${c.circle}')" title="Click to filter by ${c.circle}">
+          <td><strong>${c.circle}</strong></td>
+          <td class="text-right font-mono">${formatNum(base)}</td>
+          <td class="text-right font-mono text-emerald">${formatNum(comm)}</td>
+          <td class="text-right font-mono text-amber">${formatNum(nonComm)}</td>
+          <td class="text-center">${rateBadge}</td>
+          <td class="text-right font-mono text-crimson">${formatNum(gt7)}</td>
+        </tr>
+      `;
+    }).join('');
+
+    const overallRate = totBase > 0 ? ((totComm / totBase) * 100).toFixed(2) : 0;
+    const totalRow = `
+      <tr class="table-total-row" style="font-weight: 700; background: rgba(255,255,255,0.06); border-top: 2px solid var(--border-color);">
+        <td><strong>TOTAL (${circles.length} Circles)</strong></td>
+        <td class="text-right font-mono font-bold">${formatNum(totBase)}</td>
+        <td class="text-right font-mono text-emerald font-bold">${formatNum(totComm)}</td>
+        <td class="text-right font-mono text-amber font-bold">${formatNum(totNonComm)}</td>
+        <td class="text-center"><span class="badge ${overallRate >= 85 ? 'badge-success' : 'badge-warning'}">${overallRate}%</span></td>
+        <td class="text-right font-mono text-crimson font-bold">${formatNum(totGt7)}</td>
+      </tr>
+    `;
+    circleBody.innerHTML = rows + totalRow;
+  }
+
+  // 2. Overview Table 2: Aging & Resolution Matrix Table
+  const agingBuckets = state.currentData?.aging_buckets || state.currentData?.aging || [];
+  if (agingBuckets.length === 0) {
+    agingBody.innerHTML = '<tr><td colspan="4" class="text-center" style="padding: 16px;">No aging records available</td></tr>';
+  } else {
+    const totalAging = agingBuckets.reduce((acc, b) => acc + (Number(b.total_count) || 0), 0);
+    const rows = agingBuckets.map(b => {
+      const count = Number(b.total_count) || 0;
+      const share = totalAging > 0 ? ((count / totalAging) * 100).toFixed(1) : 0;
+      const intervalName = b.bucket || b.label || '--';
+
+      let actionText = 'Surveillance';
+      if (intervalName.includes('> 30') || intervalName.includes('> 7') || intervalName.includes('Never')) {
+        actionText = '<span class="text-crimson font-semibold">Priority Action</span>';
+      } else if (intervalName.includes('8 - 15') || intervalName.includes('16 - 30') || intervalName.includes('3-7') || intervalName.includes('3 - 7')) {
+        actionText = '<span class="text-amber font-semibold">Field Investigation</span>';
+      } else {
+        actionText = '<span class="text-cyan">Routine Monitoring</span>';
+      }
+
+      return `
+        <tr class="clickable-row" onclick="filterByAging('${intervalName}')" title="Click to filter by ${intervalName}">
+          <td><strong>${intervalName}</strong></td>
+          <td class="text-right font-mono">${formatNum(count)}</td>
+          <td class="text-center"><span class="badge ${Number(share) >= 25 ? 'badge-warning' : 'badge-info'}">${share}%</span></td>
+          <td class="text-right">${actionText}</td>
+        </tr>
+      `;
+    }).join('');
+
+    const totalRow = `
+      <tr class="table-total-row" style="font-weight: 700; background: rgba(255,255,255,0.06); border-top: 2px solid var(--border-color);">
+        <td><strong>TOTAL</strong></td>
+        <td class="text-right font-mono font-bold">${formatNum(totalAging)}</td>
+        <td class="text-center"><span class="badge badge-success">100%</span></td>
+        <td class="text-right font-semibold">Active Base</td>
+      </tr>
+    `;
+    agingBody.innerHTML = rows + totalRow;
+  }
+}
+window.renderOverviewTables = renderOverviewTables;
+
+function filterByCircle(circleName) {
+  const circleSelect = document.getElementById('filterCircle');
+  if (circleSelect) {
+    circleSelect.value = circleName;
+    state.filters.circle = circleName;
+    updateDivisionDropdown();
+    onFiltersChanged();
+  }
+}
+window.filterByCircle = filterByCircle;
+
+function filterByAging(agingInterval) {
+  const agingSelect = document.getElementById('filterAging');
+  if (agingSelect) {
+    let matched = false;
+    for (let opt of agingSelect.options) {
+      if (opt.value === agingInterval || opt.text.includes(agingInterval)) {
+        agingSelect.value = opt.value;
+        state.filters.aging = opt.value;
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) {
+      state.filters.aging = agingInterval;
+    }
+    onFiltersChanged();
+  }
+}
+window.filterByAging = filterByAging;
 
 function renderDateWiseTable() {
   const tbody = document.getElementById('dateWiseTableBody');
@@ -1491,7 +1621,7 @@ function renderMetersTable(meters) {
       return `
         <tr>
           <td><span class="mono-badge">${m.msn || '--'}</span></td>
-          <td>${m.consumer_id || '--'}</td>
+          <td class="font-mono text-right" style="font-variant-numeric: tabular-nums;">${formatConsumerId(m.consumer_id)}</td>
           <td><strong>${m.name || '--'}</strong></td>
           <td><span style="font-size: 0.78rem;">${m.circle || '--'} / ${m.division || '--'}<div style="color: var(--text-muted); font-size: 0.72rem;">${m.section || '--'}</div></span></td>
           <td><span style="font-size: 0.78rem;">${m.feeder || '--'}<div style="color: var(--text-muted); font-size: 0.72rem;">${m.dt_name || '--'}</div></span></td>
@@ -1528,19 +1658,19 @@ function renderMetersTable(meters) {
       const statusPill = `<span class="status-pill ${statusClass}">${m.comm_category || 'Pending'}</span>`;
       return `
         <tr>
-          <td><span class="mono-badge">${m.msn || '--'}</span></td>
+          <td><span class="mono-badge font-bold" style="color: var(--accent-cyan); font-size: 0.76rem;">${m.msn || m.ticket_no || '--'}</span></td>
           <td>${m.installed_date || '--'}</td>
-          <td>${m.consumer_id || '--'}</td>
-          <td>${m.name || '--'}</td>
+          <td class="font-mono text-right" style="font-variant-numeric: tabular-nums;">${formatConsumerId(m.consumer_id)}</td>
+          <td><strong>${m.name || '--'}</strong></td>
           <td>${m.circle || '--'}</td>
           <td>${m.division || '--'}</td>
           <td>${m.section || '--'}</td>
           <td>${m.feeder || m.dt_name || '--'}</td>
-          <td>${m.meter_no || '--'}</td>
+          <td><span class="mono-badge">${m.meter_no || '--'}</span></td>
           <td>${statusPill}</td>
           <td class="${m.ageing > 7 ? 'text-crimson font-semibold' : ''}">${m.ageing !== undefined ? m.ageing + ' Days' : '--'}</td>
-          <td>${m.phase || '--'}</td>
-          <td>${m.make || '--'}</td>
+          <td><span style="font-size: 0.78rem; font-weight: 600; color: #fff;">${m.phase || '--'}</span></td>
+          <td><span style="font-size: 0.72rem; color: var(--text-muted);">${m.make || '--'}</span></td>
         </tr>
       `;
     } else {
@@ -1548,7 +1678,7 @@ function renderMetersTable(meters) {
       return `
         <tr>
           <td><span class="mono-badge">${m.msn || '--'}</span></td>
-          <td>${m.consumer_id || '--'}</td>
+          <td class="font-mono text-right">${formatConsumerId(m.consumer_id)}</td>
           <td>${m.name || '--'}</td>
           <td>${m.circle || '--'}</td>
           <td>${m.division || '--'}</td>
@@ -2007,6 +2137,22 @@ function formatNum(val) {
   return Number(val).toLocaleString('en-IN');
 }
 
+function formatConsumerId(val) {
+  if (val === undefined || val === null || val === '' || val === '--' || val === '-') return '--';
+  let s = String(val).trim();
+  // Strip trailing decimal zeroes from float imports e.g. 225103842996.0
+  s = s.replace(/\.0+$/, '');
+  // Expand any scientific notation e.g. 2.25103E+11 to full integer digits
+  if (/e\+/i.test(s)) {
+    try {
+      const num = Number(s);
+      if (!isNaN(num)) s = BigInt(Math.round(num)).toString();
+    } catch (e) {}
+  }
+  return s;
+}
+window.formatConsumerId = formatConsumerId;
+
 function formatK(val) {
   if (val >= 1000000) return (val / 1000000).toFixed(1) + 'M';
   if (val >= 1000) return (val / 1000).toFixed(0) + 'k';
@@ -2174,443 +2320,394 @@ function updateCorrDivisionDropdown(divisions) {
 }
 
 function renderCorrCharts(data) {
-  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-  const textColor = isDark ? '#94a3b8' : '#475569';
-  const gridColor = isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.06)';
-
-  // Chart 1: Circle Ticket Coverage (Stacked Bar + Line)
-  const ctxCoverage = document.getElementById('chartCorrCircleCoverage')?.getContext('2d');
-  if (ctxCoverage) {
-    if (state.charts['corrCircleCoverage']) state.charts['corrCircleCoverage'].destroy();
-    const circles = data.circles || [];
-    const labels = circles.map(c => c.circle);
-    const raisedData = circles.map(c => c.tickets_raised);
-    const gapData = circles.map(c => c.no_ticket_raised);
-    const pctData = circles.map(c => c.coverage_pct);
-
-    state.charts['corrCircleCoverage'] = new Chart(ctxCoverage, {
-      type: 'bar',
-      data: {
-        labels,
-        datasets: [
-          {
-            label: 'Tickets Raised',
-            data: raisedData,
-            backgroundColor: 'rgba(16, 185, 129, 0.85)',
-            borderColor: '#10b981',
-            borderWidth: 1,
-            borderRadius: 4,
-            stack: 'stack1',
-            order: 2
-          },
-          {
-            label: 'No Ticket (Action Gap)',
-            data: gapData,
-            backgroundColor: 'rgba(244, 63, 94, 0.8)',
-            borderColor: '#f43f5e',
-            borderWidth: 1,
-            borderRadius: 4,
-            stack: 'stack1',
-            order: 3
-          },
-          {
-            type: 'line',
-            label: '% Ticket Coverage',
-            data: pctData,
-            borderColor: '#f59e0b',
-            backgroundColor: '#f59e0b',
-            borderWidth: 2.5,
-            pointBackgroundColor: '#f59e0b',
-            pointRadius: 4,
-            pointHoverRadius: 6,
-            yAxisID: 'y1',
-            order: 1
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: { mode: 'index', intersect: false },
-        plugins: {
-          legend: {
-            position: 'top',
-            labels: { color: textColor, font: { family: 'Inter', size: 12, weight: 600 }, boxWidth: 14 }
-          },
-          tooltip: {
-            callbacks: {
-              label: (ctx) => {
-                if (ctx.dataset.type === 'line') return `${ctx.dataset.label}: ${ctx.raw}%`;
-                return `${ctx.dataset.label}: ${formatNum(ctx.raw)}`;
-              }
-            }
-          },
-          datalabels: { display: false }
-        },
-        scales: {
-          x: {
-            stacked: true,
-            grid: { display: false },
-            ticks: { color: textColor, font: { family: 'Inter', weight: 600 } }
-          },
-          y: {
-            stacked: true,
-            grid: { color: gridColor },
-            ticks: {
-              color: textColor,
-              callback: (v) => formatK(v)
-            }
-          },
-          y1: {
-            position: 'right',
-            min: 0,
-            max: 100,
-            grid: { display: false },
-            ticks: {
-              color: '#f59e0b',
-              callback: (v) => `${v}%`
-            }
-          }
-        }
-      }
-    });
-  }
-
-  // Chart 2: Ticket Status Donut
-  const ctxDonut = document.getElementById('chartCorrStatusDonut')?.getContext('2d');
-  if (ctxDonut) {
-    if (state.charts['corrStatusDonut']) state.charts['corrStatusDonut'].destroy();
-    const kpi = data.kpis || {};
-    const pending = kpi.pending_tickets || 0;
-    const notifyDiscom = kpi.notify_discom_tickets || 0;
-    const attended = kpi.attended_tickets || 0;
-    const closed = kpi.closed_tickets || 0;
-    const mrRequired = kpi.mr_required_tickets || 0;
-
-    state.charts['corrStatusDonut'] = new Chart(ctxDonut, {
-      type: 'doughnut',
-      data: {
-        labels: ['Pending Field Action', 'Notify to Discom', 'Closed (Still Silent)', 'Attended', 'MR Required'],
-        datasets: [{
-          data: [pending, notifyDiscom, closed, attended, mrRequired],
-          backgroundColor: [
-            '#f59e0b',
-            '#3b82f6',
-            '#a855f7',
-            '#06b6d4',
-            '#f97316'
-          ],
-          borderColor: isDark ? '#1e293b' : '#ffffff',
-          borderWidth: 2,
-          hoverOffset: 6
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            position: 'right',
-            labels: { color: textColor, font: { family: 'Inter', size: 12 }, boxWidth: 12, padding: 12 }
-          },
-          tooltip: {
-            callbacks: {
-              label: (ctx) => {
-                const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
-                const pct = total > 0 ? ((ctx.raw / total) * 100).toFixed(1) : 0;
-                return `${ctx.label}: ${formatNum(ctx.raw)} (${pct}%)`;
-              }
-            }
-          },
-          datalabels: { display: false }
-        },
-        cutout: '62%'
-      }
-    });
-  }
-
-  // Chart 3: Non-Comm Duration vs Ticket Status (Grouped Bar)
-  const ctxAgingVsTicket = document.getElementById('chartCorrAgingVsTicket')?.getContext('2d');
-  if (ctxAgingVsTicket) {
-    if (state.charts['corrAgingVsTicket']) state.charts['corrAgingVsTicket'].destroy();
-    const commCats = data.commCategories || [];
-    const labels = commCats.map(c => c.comm_category);
-    const raisedData = commCats.map(c => c.tickets_raised);
-    const gapData = commCats.map(c => c.no_ticket_raised);
-
-    state.charts['corrAgingVsTicket'] = new Chart(ctxAgingVsTicket, {
-      type: 'bar',
-      data: {
-        labels,
-        datasets: [
-          {
-            label: 'Tickets Raised',
-            data: raisedData,
-            backgroundColor: 'rgba(16, 185, 129, 0.85)',
-            borderColor: '#10b981',
-            borderWidth: 1,
-            borderRadius: 4
-          },
-          {
-            label: 'No Ticket Raised (Gap)',
-            data: gapData,
-            backgroundColor: 'rgba(244, 63, 94, 0.8)',
-            borderColor: '#f43f5e',
-            borderWidth: 1,
-            borderRadius: 4
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            position: 'top',
-            labels: { color: textColor, font: { family: 'Inter', size: 12 } }
-          },
-          tooltip: {
-            callbacks: {
-              label: (ctx) => `${ctx.dataset.label}: ${formatNum(ctx.raw)}`
-            }
-          },
-          datalabels: { display: false }
-        },
-        scales: {
-          x: {
-            grid: { display: false },
-            ticks: { color: textColor, font: { family: 'Inter', weight: 600 } }
-          },
-          y: {
-            grid: { color: gridColor },
-            ticks: {
-              color: textColor,
-              callback: (v) => formatK(v)
-            }
-          }
-        }
-      }
-    });
-  }
-
-  // Chart 4: Top Issue Categories / Remarks (Horizontal Bar)
-  const ctxRemarks = document.getElementById('chartCorrRemarksBar')?.getContext('2d');
-  if (ctxRemarks) {
-    if (state.charts['corrRemarksBar']) state.charts['corrRemarksBar'].destroy();
-    const remarks = (data.remarks || []).slice(0, 8);
-    const labels = remarks.map(r => r.main_remarks);
-    const counts = remarks.map(r => r.count);
-
-    state.charts['corrRemarksBar'] = new Chart(ctxRemarks, {
-      type: 'bar',
-      data: {
-        labels,
-        datasets: [{
-          label: 'Silent Meters Affected',
-          data: counts,
-          backgroundColor: 'rgba(59, 130, 246, 0.8)',
-          borderColor: '#3b82f6',
-          borderWidth: 1,
-          borderRadius: 4
-        }]
-      },
-      options: {
-        indexAxis: 'y',
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            callbacks: {
-              label: (ctx) => `Meters: ${formatNum(ctx.raw)}`
-            }
-          },
-          datalabels: { display: false }
-        },
-        scales: {
-          x: {
-            grid: { color: gridColor },
-            ticks: {
-              color: textColor,
-              callback: (v) => formatK(v)
-            }
-          },
-          y: {
-            grid: { display: false },
-            ticks: {
-              color: textColor,
-              font: { family: 'Inter', size: 11, weight: 600 }
-            }
-          }
-        }
-      }
-    });
-  }
+  // User explicitly mandated removing charts and showing interactive tables only.
+  // Kept as safe no-op to preserve caller compatibility.
 }
 
 function renderCorrTables(data) {
-  // Table 1: Circle Table
-  const circleBody = document.getElementById('corrCircleTableBody');
-  if (circleBody) {
-    const circles = data.circles || [];
-    if (circles.length === 0) {
-      circleBody.innerHTML = '<tr><td colspan="11" class="text-center">No matching records</td></tr>';
-    } else {
-      let totNonComm = 0, totRaised = 0, totGap = 0, totPending = 0, totDiscom = 0, totAttended = 0, totClosed = 0, totMr = 0;
-      const rows = circles.map(c => {
-        totNonComm += c.total_non_comm;
-        totRaised += c.tickets_raised;
-        totGap += c.no_ticket_raised;
-        totPending += c.pending_tickets;
-        totDiscom += c.notify_discom_tickets;
-        totAttended += c.attended_tickets;
-        totClosed += c.closed_tickets;
-        totMr += c.mr_required_tickets;
+  // -------------------------------------------------------------
+  // Table 1: Ticket Status Breakdown (Screenshot 1 Format)
+  // -------------------------------------------------------------
+  const statusBody = document.getElementById('corrStatusTableBody');
+  if (statusBody) {
+    let list = data.statusBreakdown || [];
+    if (list.length === 0 && data.kpis) {
+      const k = data.kpis;
+      const totalRaised = Number(k.tickets_raised) || 1;
+      list = [
+        { ticket_status: 'Pending', count: Number(k.pending_tickets) || 0, pct_of_raised: ((Number(k.pending_tickets) || 0) * 100 / totalRaised).toFixed(2), status_definition: 'Ticket open in MDMS awaiting field team / technician site visit' },
+        { ticket_status: 'Notify to Discom', count: Number(k.notify_discom_tickets) || 0, pct_of_raised: ((Number(k.notify_discom_tickets) || 0) * 100 / totalRaised).toFixed(2), status_definition: 'Consumer premise issue flagged to Discom (Line cut, door closed, PDCO)' },
+        { ticket_status: 'Attended', count: Number(k.attended_tickets) || 0, pct_of_raised: ((Number(k.attended_tickets) || 0) * 100 / totalRaised).toFixed(2), status_definition: 'Technician has attended the site; under observation / pending closure' },
+        { ticket_status: 'Closed', count: Number(k.closed_tickets) || 0, pct_of_raised: ((Number(k.closed_tickets) || 0) * 100 / totalRaised).toFixed(2), status_definition: 'Audit Flag: Ticket closed in MDMS, yet meter is still non-communicating in HES' },
+        { ticket_status: 'MR Required', count: Number(k.mr_required_tickets) || 0, pct_of_raised: ((Number(k.mr_required_tickets) || 0) * 100 / totalRaised).toFixed(2), status_definition: 'Meter replacement recommended due to hardware/burnt failure' }
+      ];
+    }
 
-        const covBadge = c.coverage_pct >= 40 
-          ? `<span class="badge badge-success">${c.coverage_pct}%</span>`
-          : (c.coverage_pct >= 30 ? `<span class="badge badge-warning">${c.coverage_pct}%</span>` : `<span class="badge badge-crimson">${c.coverage_pct}%</span>`);
+    let totalCount = 0;
+    const rows = list.map(s => {
+      totalCount += Number(s.count) || 0;
+      let dotClass = 'dot-amber';
+      let statusDisplay = s.ticket_status;
+      let badgeColor = 'badge-warning';
 
-        return `
-          <tr>
-            <td><strong>${c.circle}</strong></td>
-            <td>${formatNum(c.total_non_comm)}</td>
-            <td class="text-emerald font-semibold">${formatNum(c.tickets_raised)}</td>
-            <td class="text-crimson font-semibold">${formatNum(c.no_ticket_raised)}</td>
-            <td>${covBadge}</td>
-            <td class="text-amber">${formatNum(c.pending_tickets)}</td>
-            <td class="text-blue">${formatNum(c.notify_discom_tickets)}</td>
-            <td class="text-cyan">${formatNum(c.attended_tickets)}</td>
-            <td class="text-purple">${formatNum(c.closed_tickets)}</td>
-            <td>${formatNum(c.mr_required_tickets)}</td>
-            <td>
-              <button class="btn btn-sm btn-outline" style="padding: 3px 8px; font-size: 0.72rem;" onclick="drilldownCorrCircle('${c.circle}')">
-                <i data-lucide="eye"></i> View Meters
-              </button>
-            </td>
-          </tr>
-        `;
-      }).join('');
+      if (s.ticket_status === 'Pending') {
+        dotClass = 'dot-amber';
+        badgeColor = 'badge-warning';
+      } else if (s.ticket_status === 'Notify to Discom') {
+        dotClass = 'dot-blue';
+        badgeColor = 'badge-info';
+      } else if (s.ticket_status === 'Attended') {
+        dotClass = 'dot-cyan';
+        badgeColor = 'badge-cyan';
+      } else if (s.ticket_status === 'Closed') {
+        dotClass = 'dot-purple';
+        badgeColor = 'badge-purple';
+        statusDisplay = 'Closed (Still Silent)';
+      } else if (s.ticket_status === 'MR Required') {
+        dotClass = 'dot-orange';
+        badgeColor = 'badge-orange';
+      }
 
-      const overallCov = totNonComm > 0 ? ((totRaised / totNonComm) * 100).toFixed(2) : 0;
-      const totalRow = `
-        <tr class="table-total-row" style="font-weight: 700; background: rgba(255,255,255,0.06); border-top: 2px solid var(--border-color);">
-          <td><strong>TOTAL (${circles.length} Circles)</strong></td>
-          <td>${formatNum(totNonComm)}</td>
-          <td class="text-emerald font-bold">${formatNum(totRaised)}</td>
-          <td class="text-crimson font-bold">${formatNum(totGap)}</td>
-          <td><span class="badge ${overallCov >= 40 ? 'badge-success' : 'badge-warning'}">${overallCov}%</span></td>
-          <td class="text-amber font-bold">${formatNum(totPending)}</td>
-          <td class="text-blue font-bold">${formatNum(totDiscom)}</td>
-          <td class="text-cyan font-bold">${formatNum(totAttended)}</td>
-          <td class="text-purple font-bold">${formatNum(totClosed)}</td>
-          <td>${formatNum(totMr)}</td>
-          <td>-</td>
+      return `
+        <tr class="clickable-row" onclick="setCorrTicketStatus('${s.ticket_status}')" title="Click to filter by ${s.ticket_status}">
+          <td>
+            <span style="display: inline-flex; align-items: center; gap: 8px;">
+              <span class="status-dot ${dotClass}"></span>
+              <strong>${statusDisplay}</strong>
+            </span>
+          </td>
+          <td class="text-right font-mono font-bold">${formatNum(s.count)}</td>
+          <td class="text-center"><span class="badge ${badgeColor}">${s.pct_of_raised}%</span></td>
+          <td style="font-size: 0.82rem; color: var(--text-secondary);">${s.status_definition || '--'}</td>
         </tr>
       `;
-      circleBody.innerHTML = rows + totalRow;
-    }
+    }).join('');
+
+    const totalRow = `
+      <tr class="table-total-row" style="font-weight: 700; background: rgba(255,255,255,0.06); border-top: 2px solid var(--border-color);">
+        <td><strong>Total Tickets Raised</strong></td>
+        <td class="text-right font-mono font-bold text-emerald">${formatNum(totalCount)}</td>
+        <td class="text-center"><span class="badge badge-success">100.00%</span></td>
+        <td style="font-size: 0.82rem; font-weight: 600;">Operational queue across all 7 Circles</td>
+      </tr>
+    `;
+    statusBody.innerHTML = rows + totalRow;
   }
 
-  // Table 2: Division Table
-  const divBody = document.getElementById('corrDivisionTableBody');
-  if (divBody) {
-    const divs = data.divisions || [];
-    if (divs.length === 0) {
-      divBody.innerHTML = '<tr><td colspan="11" class="text-center">No matching records</td></tr>';
-    } else {
-      let totNonComm = 0, totRaised = 0, totGap = 0, totPending = 0, totDiscom = 0, totAttended = 0, totClosed = 0, totMr = 0;
-      const rows = divs.map(d => {
-        totNonComm += d.total_non_comm;
-        totRaised += d.tickets_raised;
-        totGap += d.no_ticket_raised;
-        totPending += d.pending_tickets;
-        totDiscom += d.notify_discom_tickets;
-        totAttended += d.attended_tickets;
-        totClosed += d.closed_tickets;
-        totMr += d.mr_required_tickets;
-
-        const covBadge = d.coverage_pct >= 40 
-          ? `<span class="badge badge-success">${d.coverage_pct}%</span>`
-          : (d.coverage_pct >= 30 ? `<span class="badge badge-warning">${d.coverage_pct}%</span>` : `<span class="badge badge-crimson">${d.coverage_pct}%</span>`);
-
-        return `
-          <tr>
-            <td>${d.circle}</td>
-            <td><strong>${d.division}</strong></td>
-            <td>${formatNum(d.total_non_comm)}</td>
-            <td class="text-emerald font-semibold">${formatNum(d.tickets_raised)}</td>
-            <td class="text-crimson font-semibold">${formatNum(d.no_ticket_raised)}</td>
-            <td>${covBadge}</td>
-            <td class="text-amber">${formatNum(d.pending_tickets)}</td>
-            <td class="text-blue">${formatNum(d.notify_discom_tickets)}</td>
-            <td class="text-cyan">${formatNum(d.attended_tickets)}</td>
-            <td class="text-purple">${formatNum(d.closed_tickets)}</td>
-            <td>${formatNum(d.mr_required_tickets)}</td>
-          </tr>
-        `;
-      }).join('');
-
-      const overallCov = totNonComm > 0 ? ((totRaised / totNonComm) * 100).toFixed(2) : 0;
-      const totalRow = `
-        <tr class="table-total-row" style="font-weight: 700; background: rgba(255,255,255,0.06); border-top: 2px solid var(--border-color);">
-          <td colspan="2"><strong>TOTAL (${divs.length} Divisions)</strong></td>
-          <td>${formatNum(totNonComm)}</td>
-          <td class="text-emerald font-bold">${formatNum(totRaised)}</td>
-          <td class="text-crimson font-bold">${formatNum(totGap)}</td>
-          <td><span class="badge ${overallCov >= 40 ? 'badge-success' : 'badge-warning'}">${overallCov}%</span></td>
-          <td class="text-amber font-bold">${formatNum(totPending)}</td>
-          <td class="text-blue font-bold">${formatNum(totDiscom)}</td>
-          <td class="text-cyan font-bold">${formatNum(totAttended)}</td>
-          <td class="text-purple font-bold">${formatNum(totClosed)}</td>
-          <td>${formatNum(totMr)}</td>
-        </tr>
-      `;
-      divBody.innerHTML = rows + totalRow;
-    }
-  }
-
-  // Table 3: Comm Category Matrix Table
+  // -------------------------------------------------------------
+  // Table 2: Silent Duration vs Ticket Status Matrix (Screenshot 2 Format)
+  // -------------------------------------------------------------
   const catBody = document.getElementById('corrCommCatTableBody');
   if (catBody) {
     const cats = data.commCategories || [];
-    catBody.innerHTML = cats.map(c => {
-      const covBadge = c.coverage_pct >= 40 
+    let totM = 0, totR = 0, totG = 0, totP = 0, totD = 0, totA = 0, totC = 0, totMr = 0;
+    const rows = cats.map(c => {
+      totM += Number(c.total_meters) || 0;
+      totR += Number(c.tickets_raised) || 0;
+      totG += Number(c.no_ticket_raised) || 0;
+      totP += Number(c.pending_tickets) || 0;
+      totD += Number(c.notify_discom_tickets) || 0;
+      totA += Number(c.attended_tickets) || 0;
+      totC += Number(c.closed_tickets) || 0;
+      totMr += Number(c.mr_required_tickets) || 0;
+
+      const cov = c.coverage_pct >= 40 
         ? `<span class="badge badge-success">${c.coverage_pct}%</span>`
-        : `<span class="badge badge-warning">${c.coverage_pct}%</span>`;
+        : (c.coverage_pct >= 25 ? `<span class="badge badge-warning">${c.coverage_pct}%</span>` : `<span class="badge badge-crimson">${c.coverage_pct}%</span>`);
 
       return `
         <tr>
           <td><strong>${c.comm_category}</strong></td>
-          <td>${formatNum(c.total_meters)}</td>
-          <td class="text-emerald font-semibold">${formatNum(c.tickets_raised)}</td>
-          <td class="text-crimson font-semibold">${formatNum(c.no_ticket_raised)}</td>
-          <td>${covBadge}</td>
-          <td class="text-amber">${formatNum(c.pending_tickets)}</td>
-          <td class="text-blue">${formatNum(c.notify_discom_tickets)}</td>
-          <td class="text-purple">${formatNum(c.closed_tickets)}</td>
+          <td class="text-right font-mono">${formatNum(c.total_meters)}</td>
+          <td class="text-right font-mono text-emerald font-semibold">${formatNum(c.tickets_raised)}</td>
+          <td class="text-right font-mono text-crimson font-semibold">${formatNum(c.no_ticket_raised)}</td>
+          <td class="text-center">${cov}</td>
+          <td class="text-right font-mono text-amber">${formatNum(c.pending_tickets)}</td>
+          <td class="text-right font-mono text-blue">${formatNum(c.notify_discom_tickets)}</td>
+          <td class="text-right font-mono text-cyan">${formatNum(c.attended_tickets)}</td>
+          <td class="text-right font-mono text-purple">${formatNum(c.closed_tickets)}</td>
+          <td class="text-right font-mono">${formatNum(c.mr_required_tickets)}</td>
         </tr>
       `;
     }).join('');
+
+    const overallCov = totM > 0 ? ((totR / totM) * 100).toFixed(2) : 0;
+    const totalRow = `
+      <tr class="table-total-row" style="font-weight: 700; background: rgba(255,255,255,0.06); border-top: 2px solid var(--border-color);">
+        <td><strong>TOTAL (${cats.length} Categories)</strong></td>
+        <td class="text-right font-mono font-bold">${formatNum(totM)}</td>
+        <td class="text-right font-mono text-emerald font-bold">${formatNum(totR)}</td>
+        <td class="text-right font-mono text-crimson font-bold">${formatNum(totG)}</td>
+        <td class="text-center"><span class="badge ${overallCov >= 40 ? 'badge-success' : 'badge-warning'}">${overallCov}%</span></td>
+        <td class="text-right font-mono text-amber font-bold">${formatNum(totP)}</td>
+        <td class="text-right font-mono text-blue font-bold">${formatNum(totD)}</td>
+        <td class="text-right font-mono text-cyan font-bold">${formatNum(totA)}</td>
+        <td class="text-right font-mono text-purple font-bold">${formatNum(totC)}</td>
+        <td class="text-right font-mono font-bold">${formatNum(totMr)}</td>
+      </tr>
+    `;
+    catBody.innerHTML = rows + totalRow;
   }
 
-  // Table 4: Remarks Table
+  // -------------------------------------------------------------
+  // Table 3: Root Cause / Main Remark Breakdown (Screenshot 3 Format)
+  // -------------------------------------------------------------
   const remarksBody = document.getElementById('corrRemarksTableBody');
   if (remarksBody) {
     const rems = data.remarks || [];
-    remarksBody.innerHTML = rems.map(r => `
-      <tr>
-        <td><strong>${r.main_remarks}</strong></td>
-        <td>${r.sub_remarks || '-'}</td>
-        <td class="font-bold">${formatNum(r.count)}</td>
-        <td class="text-amber">${formatNum(r.pending)}</td>
-        <td class="text-blue">${formatNum(r.notify_discom)}</td>
-        <td class="text-cyan">${formatNum(r.attended)}</td>
-        <td class="text-purple">${formatNum(r.closed)}</td>
+    let totCnt = 0, totP = 0, totD = 0, totA = 0, totC = 0;
+    rems.forEach(r => totCnt += Number(r.count) || 0);
+
+    const colors = ['dot-amber', 'dot-blue', 'dot-cyan', 'dot-purple', 'dot-orange', 'dot-red', 'dot-green'];
+    const rows = rems.map((r, idx) => {
+      const cnt = Number(r.count) || 0;
+      totP += Number(r.pending) || 0;
+      totD += Number(r.notify_discom) || 0;
+      totA += Number(r.attended) || 0;
+      totC += Number(r.closed) || 0;
+
+      const share = totCnt > 0 ? ((cnt / totCnt) * 100).toFixed(1) : 0;
+      const dot = colors[idx % colors.length];
+
+      return `
+        <tr class="clickable-row" onclick="setCorrSearch('${r.main_remarks.replace(/'/g, "\\'")}')" title="Click to filter by ${r.main_remarks}">
+          <td>
+            <span style="display: inline-flex; align-items: center; gap: 8px;">
+              <span class="status-dot ${dot}"></span>
+              <strong>${r.main_remarks}</strong>
+            </span>
+          </td>
+          <td class="text-right font-mono font-bold">${formatNum(cnt)}</td>
+          <td class="text-center"><span class="badge ${Number(share) >= 15 ? 'badge-warning' : 'badge-info'}">${share}%</span></td>
+          <td class="text-right font-mono text-amber">${formatNum(r.pending)}</td>
+          <td class="text-right font-mono text-blue">${formatNum(r.notify_discom)}</td>
+          <td class="text-right font-mono text-cyan">${formatNum(r.attended)}</td>
+          <td class="text-right font-mono text-purple">${formatNum(r.closed)}</td>
+        </tr>
+      `;
+    }).join('');
+
+    const totalRow = `
+      <tr class="table-total-row" style="font-weight: 700; background: rgba(255,255,255,0.06); border-top: 2px solid var(--border-color);">
+        <td><strong>TOTAL (${rems.length} Causes)</strong></td>
+        <td class="text-right font-mono font-bold">${formatNum(totCnt)}</td>
+        <td class="text-center"><span class="badge badge-success">100%</span></td>
+        <td class="text-right font-mono text-amber font-bold">${formatNum(totP)}</td>
+        <td class="text-right font-mono text-blue font-bold">${formatNum(totD)}</td>
+        <td class="text-right font-mono text-cyan font-bold">${formatNum(totA)}</td>
+        <td class="text-right font-mono text-purple font-bold">${formatNum(totC)}</td>
       </tr>
-    `).join('');
+    `;
+    remarksBody.innerHTML = rows + totalRow;
+  }
+
+  // -------------------------------------------------------------
+  // Table 4: Circle Performance Benchmark Table (Screenshot 4 Format)
+  // -------------------------------------------------------------
+  const circleBody = document.getElementById('corrCircleTableBody');
+  if (circleBody) {
+    const circles = data.circles || [];
+    let totNonComm = 0, totRaised = 0, totGap = 0, totPending = 0, totDiscom = 0, totAttended = 0, totClosed = 0, totMr = 0;
+    const rows = circles.map(c => {
+      totNonComm += Number(c.total_non_comm) || 0;
+      totRaised += Number(c.tickets_raised) || 0;
+      totGap += Number(c.no_ticket_raised) || 0;
+      totPending += Number(c.pending_tickets) || 0;
+      totDiscom += Number(c.notify_discom_tickets) || 0;
+      totAttended += Number(c.attended_tickets) || 0;
+      totClosed += Number(c.closed_tickets) || 0;
+      totMr += Number(c.mr_required_tickets) || 0;
+
+      const covBadge = c.coverage_pct >= 40 
+        ? `<span class="badge badge-success">${c.coverage_pct}%</span>`
+        : (c.coverage_pct >= 30 ? `<span class="badge badge-warning">${c.coverage_pct}%</span>` : `<span class="badge badge-crimson">${c.coverage_pct}%</span>`);
+
+      return `
+        <tr class="clickable-row" onclick="setCorrCircle('${c.circle}')" title="Click to filter by ${c.circle}">
+          <td><strong>${c.circle}</strong></td>
+          <td class="text-right font-mono">${formatNum(c.total_non_comm)}</td>
+          <td class="text-right font-mono text-emerald font-semibold">${formatNum(c.tickets_raised)}</td>
+          <td class="text-right font-mono text-crimson font-semibold">${formatNum(c.no_ticket_raised)}</td>
+          <td class="text-center">${covBadge}</td>
+          <td class="text-right font-mono text-amber">${formatNum(c.pending_tickets)}</td>
+          <td class="text-right font-mono text-blue">${formatNum(c.notify_discom_tickets)}</td>
+          <td class="text-right font-mono text-cyan">${formatNum(c.attended_tickets)}</td>
+          <td class="text-right font-mono text-purple">${formatNum(c.closed_tickets)}</td>
+          <td class="text-right font-mono">${formatNum(c.mr_required_tickets)}</td>
+          <td class="text-center">
+            <button class="btn btn-sm btn-outline" style="padding: 2px 8px; font-size: 0.72rem;" onclick="event.stopPropagation(); setCorrCircle('${c.circle}')">
+              <i data-lucide="filter"></i> Filter
+            </button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    const overallCov = totNonComm > 0 ? ((totRaised / totNonComm) * 100).toFixed(2) : 0;
+    const totalRow = `
+      <tr class="table-total-row" style="font-weight: 700; background: rgba(255,255,255,0.06); border-top: 2px solid var(--border-color);">
+        <td><strong>TOTAL (${circles.length} Circles)</strong></td>
+        <td class="text-right font-mono font-bold">${formatNum(totNonComm)}</td>
+        <td class="text-right font-mono text-emerald font-bold">${formatNum(totRaised)}</td>
+        <td class="text-right font-mono text-crimson font-bold">${formatNum(totGap)}</td>
+        <td class="text-center"><span class="badge ${overallCov >= 40 ? 'badge-success' : 'badge-warning'}">${overallCov}%</span></td>
+        <td class="text-right font-mono text-amber font-bold">${formatNum(totPending)}</td>
+        <td class="text-right font-mono text-blue font-bold">${formatNum(totDiscom)}</td>
+        <td class="text-right font-mono text-cyan font-bold">${formatNum(totAttended)}</td>
+        <td class="text-right font-mono text-purple font-bold">${formatNum(totClosed)}</td>
+        <td class="text-right font-mono font-bold">${formatNum(totMr)}</td>
+        <td class="text-center">-</td>
+      </tr>
+    `;
+    circleBody.innerHTML = rows + totalRow;
+  }
+
+  // -------------------------------------------------------------
+  // Table 5: Division Breakdown & Action Gap Table
+  // -------------------------------------------------------------
+  const divBody = document.getElementById('corrDivisionTableBody');
+  if (divBody) {
+    const divs = data.divisions || [];
+    let totNonComm = 0, totRaised = 0, totGap = 0, totPending = 0, totDiscom = 0, totAttended = 0, totClosed = 0, totMr = 0;
+    const rows = divs.map(d => {
+      totNonComm += Number(d.total_non_comm) || 0;
+      totRaised += Number(d.tickets_raised) || 0;
+      totGap += Number(d.no_ticket_raised) || 0;
+      totPending += Number(d.pending_tickets) || 0;
+      totDiscom += Number(d.notify_discom_tickets) || 0;
+      totAttended += Number(d.attended_tickets) || 0;
+      totClosed += Number(d.closed_tickets) || 0;
+      totMr += Number(d.mr_required_tickets) || 0;
+
+      const covBadge = d.coverage_pct >= 40 
+        ? `<span class="badge badge-success">${d.coverage_pct}%</span>`
+        : (d.coverage_pct >= 30 ? `<span class="badge badge-warning">${d.coverage_pct}%</span>` : `<span class="badge badge-crimson">${d.coverage_pct}%</span>`);
+
+      return `
+        <tr class="clickable-row" onclick="setCorrDivision('${d.division}')" title="Click to filter by ${d.division}">
+          <td>${d.circle}</td>
+          <td><strong>${d.division}</strong></td>
+          <td class="text-right font-mono">${formatNum(d.total_non_comm)}</td>
+          <td class="text-right font-mono text-emerald font-semibold">${formatNum(d.tickets_raised)}</td>
+          <td class="text-right font-mono text-crimson font-semibold">${formatNum(d.no_ticket_raised)}</td>
+          <td class="text-center">${covBadge}</td>
+          <td class="text-right font-mono text-amber">${formatNum(d.pending_tickets)}</td>
+          <td class="text-right font-mono text-blue">${formatNum(d.notify_discom_tickets)}</td>
+          <td class="text-right font-mono text-cyan">${formatNum(d.attended_tickets)}</td>
+          <td class="text-right font-mono text-purple">${formatNum(d.closed_tickets)}</td>
+          <td class="text-right font-mono">${formatNum(d.mr_required_tickets)}</td>
+        </tr>
+      `;
+    }).join('');
+
+    const overallCov = totNonComm > 0 ? ((totRaised / totNonComm) * 100).toFixed(2) : 0;
+    const totalRow = `
+      <tr class="table-total-row" style="font-weight: 700; background: rgba(255,255,255,0.06); border-top: 2px solid var(--border-color);">
+        <td colspan="2"><strong>TOTAL (${divs.length} Divisions)</strong></td>
+        <td class="text-right font-mono font-bold">${formatNum(totNonComm)}</td>
+        <td class="text-right font-mono text-emerald font-bold">${formatNum(totRaised)}</td>
+        <td class="text-right font-mono text-crimson font-bold">${formatNum(totGap)}</td>
+        <td class="text-center"><span class="badge ${overallCov >= 40 ? 'badge-success' : 'badge-warning'}">${overallCov}%</span></td>
+        <td class="text-right font-mono text-amber font-bold">${formatNum(totPending)}</td>
+        <td class="text-right font-mono text-blue font-bold">${formatNum(totDiscom)}</td>
+        <td class="text-right font-mono text-cyan font-bold">${formatNum(totAttended)}</td>
+        <td class="text-right font-mono text-purple font-bold">${formatNum(totClosed)}</td>
+        <td class="text-right font-mono font-bold">${formatNum(totMr)}</td>
+      </tr>
+    `;
+    divBody.innerHTML = rows + totalRow;
+  }
+
+  // -------------------------------------------------------------
+  // Table 6: Ticket Aging & Backlog Analysis
+  // -------------------------------------------------------------
+  const agingBody = document.getElementById('corrAgingTableBody');
+  if (agingBody) {
+    const buckets = data.agingBuckets || [];
+    let totCnt = 0, totP = 0, totD = 0, totA = 0, totC = 0, totMr = 0;
+    buckets.forEach(b => totCnt += Number(b.total_count) || 0);
+
+    const rows = buckets.map(b => {
+      const cnt = Number(b.total_count) || 0;
+      totP += Number(b.pending) || 0;
+      totD += Number(b.notify_discom) || 0;
+      totA += Number(b.attended) || 0;
+      totC += Number(b.closed) || 0;
+      totMr += Number(b.mr_required) || 0;
+
+      const share = b.pct_share !== undefined ? b.pct_share : (totCnt > 0 ? ((cnt / totCnt) * 100).toFixed(2) : 0);
+
+      return `
+        <tr>
+          <td><strong>${b.aging_bucket}</strong></td>
+          <td class="text-right font-mono font-bold">${formatNum(cnt)}</td>
+          <td class="text-center"><span class="badge ${Number(share) >= 25 ? 'badge-warning' : 'badge-info'}">${share}%</span></td>
+          <td class="text-right font-mono text-amber">${formatNum(b.pending)}</td>
+          <td class="text-right font-mono text-blue">${formatNum(b.notify_discom)}</td>
+          <td class="text-right font-mono text-cyan">${formatNum(b.attended)}</td>
+          <td class="text-right font-mono text-purple">${formatNum(b.closed)}</td>
+          <td class="text-right font-mono">${formatNum(b.mr_required)}</td>
+        </tr>
+      `;
+    }).join('');
+
+    const totalRow = `
+      <tr class="table-total-row" style="font-weight: 700; background: rgba(255,255,255,0.06); border-top: 2px solid var(--border-color);">
+        <td><strong>TOTAL</strong></td>
+        <td class="text-right font-mono font-bold text-emerald">${formatNum(totCnt)}</td>
+        <td class="text-center"><span class="badge badge-success">100.00%</span></td>
+        <td class="text-right font-mono text-amber font-bold">${formatNum(totP)}</td>
+        <td class="text-right font-mono text-blue font-bold">${formatNum(totD)}</td>
+        <td class="text-right font-mono text-cyan font-bold">${formatNum(totA)}</td>
+        <td class="text-right font-mono text-purple font-bold">${formatNum(totC)}</td>
+        <td class="text-right font-mono font-bold">${formatNum(totMr)}</td>
+      </tr>
+    `;
+    agingBody.innerHTML = rows + totalRow;
   }
 }
+
+function setCorrCircle(circle) {
+  const sel = document.getElementById('corrFilterCircle');
+  if (sel) {
+    sel.value = circle;
+    updateCorrDivisionDropdown(corrState.data?.divisions || []);
+    loadTicketCorrelationData();
+  }
+}
+window.setCorrCircle = setCorrCircle;
+
+function setCorrDivision(division) {
+  const sel = document.getElementById('corrFilterDivision');
+  if (sel) {
+    sel.value = division;
+    loadTicketCorrelationData();
+  }
+}
+window.setCorrDivision = setCorrDivision;
+
+function setCorrTicketStatus(status) {
+  const sel = document.getElementById('corrFilterTicketStatus');
+  if (sel) {
+    if (status === 'Pending') sel.value = 'PENDING';
+    else if (status === 'Notify to Discom') sel.value = 'NOTIFY_DISCOM';
+    else if (status === 'Attended') sel.value = 'ATTENDED';
+    else if (status === 'Closed') sel.value = 'CLOSED';
+    else if (status === 'MR Required') sel.value = 'MR_REQUIRED';
+    else sel.value = 'ALL';
+    loadTicketCorrelationData();
+  }
+}
+window.setCorrTicketStatus = setCorrTicketStatus;
+
+function setCorrSearch(term) {
+  const inp = document.getElementById('corrFilterSearch');
+  if (inp) {
+    inp.value = term;
+    loadTicketCorrelationData();
+  }
+}
+window.setCorrSearch = setCorrSearch;
 
 function setupCorrelationFilters() {
   const circleSelect = document.getElementById('corrFilterCircle');
