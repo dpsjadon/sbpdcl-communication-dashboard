@@ -36,9 +36,18 @@ function ensureDatabase() {
   const targetPath = getActiveDbPath();
   if (!fs.existsSync(targetPath)) {
     const gzPath = path.join(dataDir, 'sbpdcl_analytics.duckdb.gz');
-    if (fs.existsSync(gzPath)) {
+    const p1 = path.join(dataDir, 'sbpdcl_analytics.duckdb.gz.001');
+    const p2 = path.join(dataDir, 'sbpdcl_analytics.duckdb.gz.002');
+    const zlib = require('zlib');
+
+    if (fs.existsSync(p1) && fs.existsSync(p2)) {
+      console.log(`[Cloud Init] Decompressing multipart seed database (.001 + .002) to ${dbPath}...`);
+      const combined = Buffer.concat([fs.readFileSync(p1), fs.readFileSync(p2)]);
+      const decompressed = zlib.gunzipSync(combined);
+      fs.writeFileSync(dbPath, decompressed);
+      console.log(`[Cloud Init] Database decompressed successfully (${(decompressed.length / 1024 / 1024).toFixed(2)} MB).`);
+    } else if (fs.existsSync(gzPath)) {
       console.log(`[Cloud Init] Decompressing seed database ${gzPath} to ${dbPath}...`);
-      const zlib = require('zlib');
       const compressed = fs.readFileSync(gzPath);
       const decompressed = zlib.gunzipSync(compressed);
       fs.writeFileSync(dbPath, decompressed);
@@ -88,6 +97,7 @@ function getDbConnection() {
         WITH ranked AS (
           SELECT 
             msn,
+            consumer_id,
             ticket_no,
             ticket_status,
             status_group,
@@ -99,6 +109,11 @@ function getDbConnection() {
             create_date,
             created_at,
             resolved_at,
+            consumer_total_tickets,
+            consumer_open_tickets,
+            is_repeat_consumer,
+            repeat_bucket,
+            open_ticket_bucket,
             ROW_NUMBER() OVER (PARTITION BY msn ORDER BY created_at DESC NULLS LAST, ticket_no DESC) as rn
           FROM complaint_analytics
           WHERE msn IS NOT NULL AND msn != ''
@@ -487,9 +502,15 @@ app.get('/api/reports/status', (req, res) => {
         items: [
           {
             id: "complaint_report",
-            name: "OnM Complaint Report",
+            name: "OnM Complaint Report (Current Month)",
             source: "/MDMS/Complaint/Reports/ComplaintReport",
             ...getFileInfo("Complaint")
+          },
+          {
+            id: "notify_discom_report",
+            name: "Notify to Discom Status Report (Once Daily)",
+            source: "/MDMS/Complaint/ComplaintReport?pn=1 (Report 19)",
+            ...getFileInfo("Notify")
           }
         ]
       }
@@ -1156,8 +1177,8 @@ app.get('/api/analytics/ticket-correlation', async (req, res) => {
 
     const where = conditions.join(' AND ');
 
-    const [kpiRows, circles, divisions, sections, commCategories, remarks, statusBreakdown, agingBuckets] = await Promise.all([
-      // 1. Executive Correlation KPIs
+    const [kpiRows, circles, divisions, sections, commCategories, remarks, statusBreakdown, agingBuckets, repeatReasonBuckets, openTicketDistribution] = await Promise.all([
+      // 1. Executive Correlation KPIs with Repeat Consumer Intelligence
       queryDuck(`
         SELECT 
           count(*) as total_non_comm,
@@ -1168,7 +1189,13 @@ app.get('/api/analytics/ticket-correlation', async (req, res) => {
           count(*) FILTER (WHERE c.ticket_status = 'Notify to Discom') as notify_discom_tickets,
           count(*) FILTER (WHERE c.ticket_status = 'Attended') as attended_tickets,
           count(*) FILTER (WHERE c.ticket_status = 'Closed') as closed_tickets,
-          count(*) FILTER (WHERE c.ticket_status = 'MR Required') as mr_required_tickets
+          count(*) FILTER (WHERE c.ticket_status = 'MR Required') as mr_required_tickets,
+          count(*) FILTER (WHERE c.is_repeat_consumer = 1) as repeat_consumers,
+          ROUND(count(*) FILTER (WHERE c.is_repeat_consumer = 1) * 100.0 / NULLIF(count(c.ticket_no), 0), 2) as repeat_rate_pct,
+          count(*) FILTER (WHERE c.consumer_open_tickets > 1) as multiple_open_tickets,
+          count(*) FILTER (WHERE c.consumer_open_tickets = 1) as single_open_tickets,
+          count(*) FILTER (WHERE c.consumer_open_tickets = 0) as closed_silent_tickets,
+          count(*) FILTER (WHERE c.consumer_total_tickets >= 3) as chronic_consumers_3plus
         FROM smart_meter_analytics s
         LEFT JOIN temp_latest_complaint c ON s.msn = c.msn
         WHERE ${where}
@@ -1186,7 +1213,8 @@ app.get('/api/analytics/ticket-correlation', async (req, res) => {
           count(*) FILTER (WHERE c.ticket_status = 'Notify to Discom') as notify_discom_tickets,
           count(*) FILTER (WHERE c.ticket_status = 'Attended') as attended_tickets,
           count(*) FILTER (WHERE c.ticket_status = 'Closed') as closed_tickets,
-          count(*) FILTER (WHERE c.ticket_status = 'MR Required') as mr_required_tickets
+          count(*) FILTER (WHERE c.ticket_status = 'MR Required') as mr_required_tickets,
+          count(*) FILTER (WHERE c.is_repeat_consumer = 1) as repeat_consumers
         FROM smart_meter_analytics s
         LEFT JOIN temp_latest_complaint c ON s.msn = c.msn
         WHERE ${where} AND s.circle IS NOT NULL AND s.circle != ''
@@ -1206,7 +1234,8 @@ app.get('/api/analytics/ticket-correlation', async (req, res) => {
           count(*) FILTER (WHERE c.ticket_status = 'Notify to Discom') as notify_discom_tickets,
           count(*) FILTER (WHERE c.ticket_status = 'Attended') as attended_tickets,
           count(*) FILTER (WHERE c.ticket_status = 'Closed') as closed_tickets,
-          count(*) FILTER (WHERE c.ticket_status = 'MR Required') as mr_required_tickets
+          count(*) FILTER (WHERE c.ticket_status = 'MR Required') as mr_required_tickets,
+          count(*) FILTER (WHERE c.is_repeat_consumer = 1) as repeat_consumers
         FROM smart_meter_analytics s
         LEFT JOIN temp_latest_complaint c ON s.msn = c.msn
         WHERE ${where} AND s.division IS NOT NULL AND s.division != ''
@@ -1247,7 +1276,8 @@ app.get('/api/analytics/ticket-correlation', async (req, res) => {
           count(*) FILTER (WHERE c.ticket_status = 'Notify to Discom') as notify_discom_tickets,
           count(*) FILTER (WHERE c.ticket_status = 'Attended') as attended_tickets,
           count(*) FILTER (WHERE c.ticket_status = 'Closed') as closed_tickets,
-          count(*) FILTER (WHERE c.ticket_status = 'MR Required') as mr_required_tickets
+          count(*) FILTER (WHERE c.ticket_status = 'MR Required') as mr_required_tickets,
+          count(*) FILTER (WHERE c.is_repeat_consumer = 1) as repeat_consumers
         FROM smart_meter_analytics s
         LEFT JOIN temp_latest_complaint c ON s.msn = c.msn
         WHERE ${where}
@@ -1316,6 +1346,56 @@ app.get('/api/analytics/ticket-correlation', async (req, res) => {
           WHEN '16 - 30 Days' THEN 4 
           WHEN '> 30 Days' THEN 5 
           ELSE 6 END
+      `),
+
+      // 9. Repeat & Chronic Issues by Main Reason Bucket
+      queryDuck(`
+        SELECT 
+          COALESCE(c.main_remarks, 'Pending Field Action') as main_remarks,
+          count(*) as total_silent_with_ticket,
+          count(*) FILTER (WHERE c.consumer_total_tickets = 1) as single_ticket_consumers,
+          count(*) FILTER (WHERE c.consumer_total_tickets = 2) as repeat_2_tickets,
+          count(*) FILTER (WHERE c.consumer_total_tickets >= 3) as chronic_3plus_tickets,
+          count(*) FILTER (WHERE c.consumer_open_tickets >= 1) as open_ticket_consumers,
+          count(*) FILTER (WHERE c.consumer_open_tickets > 1) as multiple_open_tickets,
+          ROUND(count(*) FILTER (WHERE c.is_repeat_consumer = 1) * 100.0 / NULLIF(count(*), 0), 2) as repeat_rate_pct
+        FROM smart_meter_analytics s
+        JOIN temp_latest_complaint c ON s.msn = c.msn
+        WHERE ${where}
+        GROUP BY c.main_remarks
+        ORDER BY total_silent_with_ticket DESC
+        LIMIT 30
+      `),
+
+      // 10. Open Tickets Distribution against Same Consumer
+      queryDuck(`
+        SELECT 
+          c.open_ticket_bucket,
+          count(*) as consumer_count,
+          ROUND(count(*) * 100.0 / NULLIF((SELECT count(c4.ticket_no) FROM smart_meter_analytics s4 JOIN temp_latest_complaint c4 ON s4.msn = c4.msn WHERE ${where.replace(/s\./g, 's4.').replace(/c\./g, 'c4.')}), 0), 2) as pct_share,
+          CASE c.open_ticket_bucket
+            WHEN '0 Open Tickets' THEN 'All prior tickets closed in MDMS, yet meter currently silent in HES (Suspected false closure)'
+            WHEN '1 Open Ticket' THEN 'Single open ticket under normal field operational lifecycle'
+            WHEN '2 Open Tickets' THEN 'Repeated failure: 2 active open tickets on premise requiring technician attention'
+            WHEN '>= 3 Open Tickets' THEN 'Chronic failure hotspot: >=3 open tickets on same consumer requiring supervisor audit'
+            ELSE 'Field action in progress'
+          END as operational_definition,
+          CASE c.open_ticket_bucket
+            WHEN '>= 3 Open Tickets' THEN 'CRITICAL'
+            WHEN '2 Open Tickets' THEN 'HIGH'
+            WHEN '1 Open Ticket' THEN 'MEDIUM'
+            ELSE 'AUDIT'
+          END as priority_level
+        FROM smart_meter_analytics s
+        JOIN temp_latest_complaint c ON s.msn = c.msn
+        WHERE ${where}
+        GROUP BY c.open_ticket_bucket
+        ORDER BY CASE c.open_ticket_bucket
+          WHEN '>= 3 Open Tickets' THEN 1
+          WHEN '2 Open Tickets' THEN 2
+          WHEN '1 Open Ticket' THEN 3
+          WHEN '0 Open Tickets' THEN 4
+          ELSE 5 END
       `)
     ]);
 
@@ -1328,7 +1408,9 @@ app.get('/api/analytics/ticket-correlation', async (req, res) => {
       commCategories,
       remarks,
       statusBreakdown: statusBreakdown || [],
-      agingBuckets: agingBuckets || []
+      agingBuckets: agingBuckets || [],
+      repeatReasonBuckets: repeatReasonBuckets || [],
+      openTicketDistribution: openTicketDistribution || []
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -1367,7 +1449,11 @@ app.get('/api/meters', async (req, res) => {
           COALESCE(c.main_remarks, '-') as main_remarks,
           COALESCE(c.sub_remarks, '-') as sub_remarks,
           COALESCE(c.create_date, '-') as ticket_date,
-          COALESCE(c.aging_days, 0) as ticket_aging
+          COALESCE(c.aging_days, 0) as ticket_aging,
+          COALESCE(c.consumer_total_tickets, 0) as total_tickets_count,
+          COALESCE(c.consumer_open_tickets, 0) as open_tickets_count,
+          COALESCE(c.repeat_bucket, '1 Ticket') as repeat_bucket,
+          COALESCE(c.open_ticket_bucket, '0 Open Tickets') as open_ticket_bucket
         FROM ${table} s
         LEFT JOIN temp_latest_complaint c ON s.msn = c.msn
         WHERE ${whereClause}
@@ -1425,7 +1511,11 @@ app.get('/api/meters', async (req, res) => {
           complaint_type as category,
           priority as communication_type,
           agency as hes_source,
-          technician as tariff
+          technician as tariff,
+          consumer_total_tickets as total_tickets_count,
+          consumer_open_tickets as open_tickets_count,
+          repeat_bucket,
+          open_ticket_bucket
         FROM ${table}
         WHERE ${whereClause}
         ORDER BY aging_days DESC, ticket_no DESC
@@ -1477,6 +1567,9 @@ app.get('/api/export', async (req, res) => {
           CASE WHEN c.ticket_no IS NOT NULL THEN 'YES' ELSE 'NO' END as "Ticket Raised?",
           COALESCE(c.ticket_status, 'No Ticket Raised') as "Ticket Status",
           COALESCE(c.ticket_no, '-') as "Ticket No",
+          COALESCE(c.consumer_total_tickets, 0) as "Total Tickets Raised",
+          COALESCE(c.consumer_open_tickets, 0) as "Open Tickets Count",
+          COALESCE(c.repeat_bucket, '1 Ticket') as "Repeat / Chronic Category",
           COALESCE(c.main_remarks, 'No Ticket Raised') as "Ticket Main Remarks",
           COALESCE(c.sub_remarks, '-') as "Ticket Sub Remarks",
           COALESCE(c.create_date, '-') as "Ticket Creation Date",
@@ -1503,6 +1596,9 @@ app.get('/api/export', async (req, res) => {
           CASE WHEN c.ticket_no IS NOT NULL THEN 'YES' ELSE 'NO' END as "Ticket Raised?",
           COALESCE(c.ticket_status, 'No Ticket Raised') as "Ticket Status",
           COALESCE(c.ticket_no, '-') as "Ticket No",
+          COALESCE(c.consumer_total_tickets, 0) as "Total Tickets Raised",
+          COALESCE(c.consumer_open_tickets, 0) as "Open Tickets Count",
+          COALESCE(c.repeat_bucket, '1 Ticket') as "Repeat / Chronic Category",
           COALESCE(c.main_remarks, 'No Ticket Raised') as "Ticket Main Remarks",
           COALESCE(c.sub_remarks, '-') as "Ticket Sub Remarks",
           COALESCE(c.create_date, '-') as "Ticket Creation Date",

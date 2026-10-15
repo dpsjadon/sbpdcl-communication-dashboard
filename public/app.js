@@ -40,6 +40,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupCategorySwitcher();
   setupCorrelationFilters();
   setupDownloaderHub();
+  updateTabVisibility();
   await loadReportStatuses();
   await loadInitialData();
 });
@@ -144,6 +145,9 @@ function switchCategory(cat) {
     b.classList.toggle('active', b.dataset.inactive === 'exclude');
   });
 
+  // Update Tab Visibility (Overview, Ticket Correlation, Date-wise only for O&M Complaints)
+  updateTabVisibility();
+
   // Update Filter Labels
   updateFilterLabelsForCategory();
 
@@ -152,6 +156,41 @@ function switchCategory(cat) {
 
   // Load new category data
   loadInitialData();
+}
+
+function updateTabVisibility() {
+  const isOM = (state.category === 'complaint');
+  const omTabs = ['navTabOverview', 'navTabCorrelation', 'navTabDateWise'];
+  const omPanes = ['tab-overview', 'tab-correlation', 'tab-datewise'];
+
+  omTabs.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.classList.toggle('hidden', !isOM);
+      el.style.display = isOM ? 'inline-flex' : 'none';
+    }
+  });
+
+  // If currently active tab is one of the O&M-only tabs and we are NOT in O&M, switch to Circle Analysis
+  const activeTab = document.querySelector('.nav-tab.active');
+  const activeTabId = activeTab ? activeTab.dataset.tab : '';
+
+  if (!isOM && omPanes.includes(activeTabId)) {
+    document.querySelectorAll('.nav-tab').forEach(t => {
+      t.classList.toggle('active', t.dataset.tab === 'tab-circle');
+    });
+    document.querySelectorAll('.tab-pane').forEach(p => {
+      p.classList.toggle('active', p.id === 'tab-circle');
+    });
+  } else if (isOM && (activeTabId === 'tab-circle' || !activeTabId)) {
+    // When switching to O&M complaint, default to Overview
+    document.querySelectorAll('.nav-tab').forEach(t => {
+      t.classList.toggle('active', t.dataset.tab === 'tab-overview');
+    });
+    document.querySelectorAll('.tab-pane').forEach(p => {
+      p.classList.toggle('active', p.id === 'tab-overview');
+    });
+  }
 }
 
 function updateFilterLabelsForCategory() {
@@ -326,6 +365,7 @@ function renderExplorerThead() {
         <th>Comm Status</th>
         <th class="text-center">Ticket Raised?</th>
         <th>Ticket Status</th>
+        <th class="text-center">Total / Open</th>
         <th>Ticket No</th>
         <th>Category / Remarks</th>
         <th>Ticket Date</th>
@@ -1618,6 +1658,22 @@ function renderMetersTable(meters) {
         ? `<div style="font-size: 0.76rem; white-space: nowrap;">${m.ticket_date}<div style="color: var(--text-muted); font-size: 0.7rem;">(${m.ticket_aging}d age)</div></div>`
         : `<span style="color: var(--text-muted); font-size: 0.75rem;">-</span>`;
 
+      const totalTickets = Number(m.total_tickets_count) || 0;
+      const openTickets = Number(m.open_tickets_count) || 0;
+      let ticketVolumeBadge = `<span style="color: var(--text-muted); font-size: 0.75rem;">-</span>`;
+      if (totalTickets > 0) {
+        const isChronic = totalTickets >= 3;
+        const isRepeat = totalTickets >= 2;
+        const multiOpen = openTickets >= 2;
+        ticketVolumeBadge = `
+          <div style="font-size: 0.74rem; font-family: monospace; white-space: nowrap;">
+            <span class="${isChronic ? 'text-crimson font-bold' : (isRepeat ? 'text-amber font-semibold' : 'text-emerald')}" title="${isChronic ? 'Chronic 3+ tickets' : (isRepeat ? 'Repeat complaint' : 'Single ticket')}">${totalTickets} Tot</span>
+            <span style="color: var(--text-muted);">/</span>
+            <span class="${multiOpen ? 'text-rose font-bold' : (openTickets > 0 ? 'text-blue' : 'text-muted')}" title="${multiOpen ? 'Multiple Open Tickets' : `${openTickets} open`}">${openTickets} Op</span>
+          </div>
+        `;
+      }
+
       return `
         <tr>
           <td><span class="mono-badge">${m.msn || '--'}</span></td>
@@ -1630,6 +1686,7 @@ function renderMetersTable(meters) {
           <td>${statusPill}</td>
           <td class="text-center">${raisedBadge}</td>
           <td>${statusBadge}</td>
+          <td class="text-center">${ticketVolumeBadge}</td>
           <td>${ticketNoDisplay}</td>
           <td>${categoryRemarks}</td>
           <td>${ticketDateDisplay}</td>
@@ -2271,6 +2328,21 @@ function renderCorrKPIs(kpis) {
   const elGapPct = document.getElementById('corrKpiGapPct');
   if (elGapPct) elGapPct.textContent = `${gapPct}% Action Required`;
 
+  // Repeat Complaints & Multiple Open Tickets (Chronic Backlog)
+  const repeatConsumers = Number(kpis.repeat_consumers) || 0;
+  const repeatRate = kpis.repeat_rate_pct !== undefined ? kpis.repeat_rate_pct : (ticketsRaised > 0 ? ((repeatConsumers / ticketsRaised) * 100).toFixed(1) : 0);
+  const multipleOpen = Number(kpis.multiple_open_tickets) || 0;
+
+  const elRepeat = document.getElementById('corrKpiRepeatConsumers');
+  if (elRepeat) elRepeat.textContent = formatNum(repeatConsumers);
+  const elRepeatRate = document.getElementById('corrKpiRepeatRate');
+  if (elRepeatRate) elRepeatRate.textContent = `${repeatRate}% Repeat Rate`;
+
+  const elMultiOpen = document.getElementById('corrKpiMultipleOpen');
+  if (elMultiOpen) elMultiOpen.textContent = formatNum(multipleOpen);
+  const elMultiOpenSub = document.getElementById('corrKpiMultipleOpenSub');
+  if (elMultiOpenSub) elMultiOpenSub.textContent = `${formatNum(multipleOpen)} Premise w/ ≥2 Open`;
+
   const elPending = document.getElementById('corrKpiPending');
   if (elPending) elPending.textContent = formatNum(pending);
   const elPendingPct = document.getElementById('corrKpiPendingPct');
@@ -2664,6 +2736,112 @@ function renderCorrTables(data) {
       </tr>
     `;
     agingBody.innerHTML = rows + totalRow;
+  }
+
+  // -------------------------------------------------------------
+  // Table 3B: Repeat Issues by Main Reason Bucket
+  // -------------------------------------------------------------
+  const repeatReasonBody = document.getElementById('corrRepeatReasonTableBody');
+  if (repeatReasonBody) {
+    const list = data.repeatReasonBuckets || [];
+    let totSilent = 0, totSingle = 0, totRepeat = 0, totChronic = 0, totOpen = 0, totMultiOpen = 0;
+
+    const rows = list.map(item => {
+      const silent = Number(item.total_silent_with_ticket || item.total_silent_consumers) || 0;
+      const single = Number(item.single_ticket_consumers) || 0;
+      const repeat = Number(item.repeat_2_tickets || item.repeat_2_tickets_consumers) || 0;
+      const chronic = Number(item.chronic_3plus_tickets || item.chronic_3plus_consumers) || 0;
+      const open = Number(item.open_ticket_consumers) || 0;
+      const multiOpen = Number(item.multiple_open_tickets || item.multi_open_ticket_consumers) || 0;
+
+      totSilent += silent;
+      totSingle += single;
+      totRepeat += repeat;
+      totChronic += chronic;
+      totOpen += open;
+      totMultiOpen += multiOpen;
+
+      const repeatCount = repeat + chronic;
+      const repPct = item.repeat_rate_pct !== undefined ? item.repeat_rate_pct : (silent > 0 ? ((repeatCount / silent) * 100).toFixed(1) : 0);
+      const badgeClass = Number(repPct) >= 50 ? 'badge-crimson' : (Number(repPct) >= 25 ? 'badge-warning' : 'badge-info');
+
+      return `
+        <tr class="clickable-row" onclick="setCorrSearch('${(item.main_remarks || '').replace(/'/g, "\\'")}')" title="Click to filter by ${item.main_remarks}">
+          <td><strong>${item.main_remarks || 'Unspecified'}</strong></td>
+          <td class="text-right font-mono font-bold">${formatNum(silent)}</td>
+          <td class="text-right font-mono text-emerald">${formatNum(single)}</td>
+          <td class="text-right font-mono text-amber font-semibold">${formatNum(repeat)}</td>
+          <td class="text-right font-mono text-crimson font-bold">${formatNum(chronic)}</td>
+          <td class="text-right font-mono text-blue">${formatNum(open)}</td>
+          <td class="text-right font-mono text-rose font-bold">${formatNum(multiOpen)}</td>
+          <td class="text-center"><span class="badge ${badgeClass}">${repPct}%</span></td>
+        </tr>
+      `;
+    }).join('');
+
+    const totRepPct = totSilent > 0 ? (((totRepeat + totChronic) / totSilent) * 100).toFixed(1) : 0;
+    const totalRow = `
+      <tr class="table-total-row" style="font-weight: 700; background: rgba(255,255,255,0.06); border-top: 2px solid var(--border-color);">
+        <td><strong>TOTAL (${list.length} Reason Buckets)</strong></td>
+        <td class="text-right font-mono font-bold text-amber">${formatNum(totSilent)}</td>
+        <td class="text-right font-mono text-emerald font-bold">${formatNum(totSingle)}</td>
+        <td class="text-right font-mono text-amber font-bold">${formatNum(totRepeat)}</td>
+        <td class="text-right font-mono text-crimson font-bold">${formatNum(totChronic)}</td>
+        <td class="text-right font-mono text-blue font-bold">${formatNum(totOpen)}</td>
+        <td class="text-right font-mono text-rose font-bold">${formatNum(totMultiOpen)}</td>
+        <td class="text-center"><span class="badge badge-warning">${totRepPct}%</span></td>
+      </tr>
+    `;
+    repeatReasonBody.innerHTML = rows + totalRow;
+  }
+
+  // -------------------------------------------------------------
+  // Table 3C: Open Tickets Volume per Consumer Distribution
+  // -------------------------------------------------------------
+  const openDistBody = document.getElementById('corrOpenTicketDistTableBody');
+  if (openDistBody) {
+    const list = data.openTicketDistribution || [];
+    let totConsumers = 0;
+    list.forEach(item => totConsumers += Number(item.consumer_count) || 0);
+
+    const directiveMap = {
+      '0 Open Tickets': { severity: '<span class="badge badge-success">Resolved / Attended</span>', action: 'All previous complaints closed; confirm physical modem communication or investigate meter status' },
+      '1 Open Ticket': { severity: '<span class="badge badge-info">Single Open</span>', action: 'Standard field visit ticket in dispatch queue; monitor standard SLA' },
+      '2 Open Tickets': { severity: '<span class="badge badge-warning">Dual Open (Repeat)</span>', action: 'Repeated ticket logged; escalate to Division O&M Supervisor for expedited premises check' },
+      '>= 3 Open Tickets': { severity: '<span class="badge badge-crimson">Chronic (≥3 Open)</span>', action: 'High priority backlog; requires Joint Inspection by Discom JE & IntelliSmart Field Lead' },
+      '3 Open Tickets': { severity: '<span class="badge badge-crimson">Chronic (3 Open)</span>', action: 'High priority backlog; requires Joint Inspection by Discom JE & IntelliSmart Field Lead' },
+      '4+ Open Tickets': { severity: '<span class="badge badge-rose">Severe Chronic (4+)</span>', action: 'Critical premise anomaly / persistent bypass / burnt meter candidate; mandatory site audit' }
+    };
+
+    const rows = list.map(item => {
+      const cnt = Number(item.consumer_count) || 0;
+      const share = item.pct_share !== undefined ? item.pct_share : (totConsumers > 0 ? ((cnt / totConsumers) * 100).toFixed(1) : 0);
+      const meta = directiveMap[item.open_ticket_bucket] || { 
+        severity: item.priority_level ? `<span class="badge ${item.priority_level === 'CRITICAL' ? 'badge-crimson' : (item.priority_level === 'HIGH' ? 'badge-warning' : 'badge-info')}">${item.priority_level}</span>` : '<span class="badge badge-secondary">Standard</span>', 
+        action: item.operational_definition || 'Monitor and review' 
+      };
+
+      return `
+        <tr>
+          <td><strong>${item.open_ticket_bucket}</strong></td>
+          <td class="text-right font-mono font-bold">${formatNum(cnt)}</td>
+          <td class="text-center"><span class="badge badge-info">${share}%</span></td>
+          <td class="text-center">${meta.severity}</td>
+          <td style="font-size: 0.83rem; color: var(--text-secondary);">${meta.action}</td>
+        </tr>
+      `;
+    }).join('');
+
+    const totalRow = `
+      <tr class="table-total-row" style="font-weight: 700; background: rgba(255,255,255,0.06); border-top: 2px solid var(--border-color);">
+        <td><strong>TOTAL</strong></td>
+        <td class="text-right font-mono font-bold text-amber">${formatNum(totConsumers)}</td>
+        <td class="text-center"><span class="badge badge-success">100.0%</span></td>
+        <td class="text-center">--</td>
+        <td style="font-size: 0.83rem; font-weight: 600;">Full silent meter population breakdown</td>
+      </tr>
+    `;
+    openDistBody.innerHTML = rows + totalRow;
   }
 }
 

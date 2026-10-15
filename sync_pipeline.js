@@ -43,6 +43,7 @@ async function runSync(options = {}) {
   const doFdrNonComm = target === 'all' || target === 'feeder' || target === 'feeder_non_comm';
   const doFdrNeverComm = target === 'all' || target === 'feeder' || target === 'feeder_never_comm';
   const doComplaint = target === 'all' || target === 'complaint' || target === 'onm';
+  const doNotifyDiscom = target === 'all' || target === 'complaint' || target === 'notify_discom';
 
   const doConsumer = doConsMaster || doConsComm;
   const doDT = doDTMaster || doDTNonComm || doDTNeverComm;
@@ -311,6 +312,32 @@ async function runSync(options = {}) {
       ]);
       await sleep(2500);
       log('COMPLAINT', 75, 'OnM Complaint Report queued.');
+
+      if (doNotifyDiscom) {
+        log('NOTIFY_DISCOM', 75.5, 'Queuing Notify to Discom Status Report from /MDMS/Complaint/ComplaintReport?pn=1...');
+        try {
+          await page.goto('https://mdm.sbpdclinfra.in/MDMS/Complaint/ComplaintReport?pn=1', { waitUntil: 'networkidle2', timeout: 45000 });
+          await page.waitForSelector('#ContentPlaceHolder1_authsub_ddlReportType', { timeout: 45000 });
+          await sleep(1000);
+          await page.select('#ContentPlaceHolder1_authsub_ddlReportType', '19');
+          await page.evaluate(() => {
+            const sel = document.getElementById('ContentPlaceHolder1_authsub_ddlReportType');
+            if (sel) sel.dispatchEvent(new Event('change', { bubbles: true }));
+          });
+          await sleep(2500);
+          await Promise.all([
+            page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 90000 }).catch(() => {}),
+            page.click('#ContentPlaceHolder1_authsub_btnView')
+          ]);
+          await sleep(2000);
+          await page.waitForSelector('#ContentPlaceHolder1_authsub_btnDownloadRequest', { visible: true, timeout: 90000 });
+          await page.click('#ContentPlaceHolder1_authsub_btnDownloadRequest');
+          await sleep(2500);
+          log('NOTIFY_DISCOM', 76, 'Notify to Discom Status Report queued successfully.');
+        } catch (e) {
+          console.error('Notify to Discom queue attempt error:', e.message);
+        }
+      }
     }
 
     // -------------------------------------------------------------

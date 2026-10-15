@@ -332,16 +332,16 @@
 
     <!-- Tab Navigation Bar -->
     <nav class="nav-tabs-bar">
-      <button class="nav-tab active" data-tab="tab-overview" id="navTabOverview">
+      <button class="nav-tab hidden" data-tab="tab-overview" id="navTabOverview">
         <i data-lucide="layout-dashboard"></i> Overview
       </button>
-      <button class="nav-tab" data-tab="tab-correlation" id="navTabCorrelation">
+      <button class="nav-tab hidden" data-tab="tab-correlation" id="navTabCorrelation">
         <i data-lucide="link-2"></i> Ticket Correlation
       </button>
-      <button class="nav-tab" data-tab="tab-datewise" id="navTabDateWise">
+      <button class="nav-tab hidden" data-tab="tab-datewise" id="navTabDateWise">
         <i data-lucide="calendar"></i> Date-wise Analytics
       </button>
-      <button class="nav-tab" data-tab="tab-circle" id="navTabCircle">
+      <button class="nav-tab active" data-tab="tab-circle" id="navTabCircle">
         <i data-lucide="map-pin"></i> Circle Analysis
       </button>
       <button class="nav-tab" data-tab="tab-division" id="navTabDivision">
@@ -362,7 +362,7 @@
     </nav>
 
     <!-- TAB 1: EXECUTIVE OVERVIEW -->
-    <div id="tab-overview" class="tab-pane active">
+    <div id="tab-overview" class="tab-pane">
       <div class="table-dual-grid" style="margin-bottom: 20px;">
         <!-- Overview Table 1: Circle Benchmark Table -->
         <div class="table-card card">
@@ -438,11 +438,11 @@
         <div>
           <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 4px;">
             <span style="font-size: 1.3rem;">⚡</span>
-            <h2 style="font-size: 1.25rem; font-weight: 700; color: #fff; margin: 0;">Non-Communication &amp; O&amp;M Ticket Correlation Intelligence</h2>
+            <h2 style="font-size: 1.25rem; font-weight: 700; color: #fff; margin: 0;">Non-Communication &amp; O&amp;M Ticket Correlation &amp; Repeat Intelligence</h2>
             <span class="badge-status-live"><span class="pulse-dot"></span> LIVE CORRELATION</span>
           </div>
           <p style="color: var(--text-muted); font-size: 0.88rem; margin: 0;">
-            Cross-analyzing <strong style="color: var(--accent-amber);">72,090 silent consumer smart meters</strong> against <strong style="color: var(--accent-cyan);">113,863 O&amp;M complaint tickets</strong> to pinpoint unattended action gaps, field bottlenecks, and suspected false closures.
+            Cross-analyzing <strong style="color: var(--accent-amber);">72,090 silent consumer smart meters</strong> against <strong style="color: var(--accent-cyan);">1,074,173 O&amp;M complaint &amp; notify tickets</strong>. 70,579 silent meters matched (97.9% coverage) to pinpoint repeat consumer failures, multiple open tickets, and chronic field bottlenecks.
           </p>
         </div>
         <div style="display: flex; gap: 10px;">
@@ -450,7 +450,7 @@
             <i data-lucide="radio"></i> All Silent (72.1K)
           </button>
           <button class="btn btn-sm btn-outline" style="border-color: var(--accent-crimson); color: var(--accent-crimson);" onclick="applyCorrPreset('gap')">
-            <i data-lucide="alert-octagon"></i> Unattended Gap (45.2K)
+            <i data-lucide="alert-octagon"></i> Unattended Gap
           </button>
           <button class="btn btn-sm btn-primary" onclick="exportTableToCSV('corrCircleTable', 'circle_ticket_correlation.csv')">
             <i data-lucide="download"></i> Export Correlation CSV
@@ -458,8 +458,8 @@
         </div>
       </div>
 
-      <!-- 7 Executive Correlation KPI Cards -->
-      <section class="kpi-grid" style="margin-bottom: 20px;">
+      <!-- 9 Executive Correlation KPI Cards -->
+      <section class="kpi-grid" style="margin-bottom: 20px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));">
         <!-- KPI 1: Total Non-Comm Base -->
         <div class="kpi-card card">
           <div class="kpi-header">
@@ -490,22 +490,37 @@
           </div>
         </div>
 
-        <!-- KPI 3: No Ticket Raised (Action Gap) -->
+        <!-- KPI 3: Repeat Consumer Complaints -->
         <div class="kpi-card card">
           <div class="kpi-header">
-            <span class="kpi-label">No Ticket Raised (Gap)</span>
-            <div class="kpi-icon-wrap icon-rose"><i data-lucide="alert-octagon"></i></div>
+            <span class="kpi-label">Repeat Complaints</span>
+            <div class="kpi-icon-wrap icon-amber"><i data-lucide="repeat"></i></div>
           </div>
           <div class="kpi-value-wrap">
-            <div class="kpi-value text-rose" id="corrKpiNoTicket">--</div>
-            <span class="kpi-subtext" id="corrKpiGapPct">--% Action Required</span>
+            <div class="kpi-value text-amber" id="corrKpiRepeatConsumers">--</div>
+            <span class="kpi-subtext" id="corrKpiRepeatRate">--% Repeat Issue Rate</span>
           </div>
           <div class="kpi-footer">
-            <span class="pill pill-rose"><i data-lucide="bell-off"></i> Unattended Silent Meters</span>
+            <span class="pill pill-amber"><i data-lucide="refresh-cw"></i> 2+ Tickets on Premise</span>
           </div>
         </div>
 
-        <!-- KPI 4: Pending Field Action -->
+        <!-- KPI 4: Multiple Open Tickets (Chronic) -->
+        <div class="kpi-card card">
+          <div class="kpi-header">
+            <span class="kpi-label">Multiple Open Tickets</span>
+            <div class="kpi-icon-wrap icon-crimson"><i data-lucide="alert-octagon"></i></div>
+          </div>
+          <div class="kpi-value-wrap">
+            <div class="kpi-value text-crimson" id="corrKpiMultipleOpen">--</div>
+            <span class="kpi-subtext" id="corrKpiMultipleOpenSub">2+ Active Tickets</span>
+          </div>
+          <div class="kpi-footer">
+            <span class="pill pill-crimson"><i data-lucide="flame"></i> Chronic Backlog</span>
+          </div>
+        </div>
+
+        <!-- KPI 5: Pending Field Action -->
         <div class="kpi-card card">
           <div class="kpi-header">
             <span class="kpi-label">Pending Field Action</span>
@@ -520,7 +535,7 @@
           </div>
         </div>
 
-        <!-- KPI 5: Notify to Discom -->
+        <!-- KPI 6: Notify to Discom -->
         <div class="kpi-card card">
           <div class="kpi-header">
             <span class="kpi-label">Notify to Discom</span>
@@ -535,7 +550,7 @@
           </div>
         </div>
 
-        <!-- KPI 6: Technician Attended -->
+        <!-- KPI 7: Technician Attended -->
         <div class="kpi-card card">
           <div class="kpi-header">
             <span class="kpi-label">Technician Attended</span>
@@ -550,7 +565,7 @@
           </div>
         </div>
 
-        <!-- KPI 7: Suspected False Closed -->
+        <!-- KPI 8: Suspected False Closed -->
         <div class="kpi-card card">
           <div class="kpi-header">
             <span class="kpi-label">Closed (Still Silent)</span>
@@ -561,7 +576,22 @@
             <span class="kpi-subtext">Closed in O&amp;M, Silent in HES</span>
           </div>
           <div class="kpi-footer">
-            <span class="pill pill-purple"><i data-lucide="refresh-ccw"></i> Suspected False Closed</span>
+            <span class="pill pill-purple"><i data-lucide="refresh-ccw"></i> False Closed Flag</span>
+          </div>
+        </div>
+
+        <!-- KPI 9: No Ticket Raised (Action Gap) -->
+        <div class="kpi-card card">
+          <div class="kpi-header">
+            <span class="kpi-label">No Ticket Raised (Gap)</span>
+            <div class="kpi-icon-wrap icon-rose"><i data-lucide="bell-off"></i></div>
+          </div>
+          <div class="kpi-value-wrap">
+            <div class="kpi-value text-rose" id="corrKpiNoTicket">--</div>
+            <span class="kpi-subtext" id="corrKpiGapPct">--% Action Gap</span>
+          </div>
+          <div class="kpi-footer">
+            <span class="pill pill-rose"><i data-lucide="alert-circle"></i> Unattended Meters</span>
           </div>
         </div>
       </section>
@@ -760,6 +790,74 @@
         </div>
       </div>
 
+      <!-- NEW ROW: REPEAT ISSUES & OPEN TICKETS AGAINST SAME CONSUMER (User Request) -->
+      <div class="table-dual-grid" style="margin-bottom: 20px;">
+        <!-- Table 3B: Repeat & Chronic Issues by Main Reason Bucket -->
+        <div class="table-card card">
+          <div class="table-header-flex">
+            <div>
+              <h3><i data-lucide="repeat" style="color: var(--accent-amber); vertical-align: middle; width: 18px; height: 18px;"></i> Repeat Issues by Main Reason Bucket</h3>
+              <p>Consumers with repeated/chronic tickets w.r.t failure reason bucket (Click row to filter)</p>
+            </div>
+            <div class="table-actions">
+              <button class="btn btn-sm btn-outline" onclick="exportTableToCSV('corrRepeatReasonTable', 'repeat_issues_by_reason_bucket.csv')">
+                <i data-lucide="download"></i> Export CSV
+              </button>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table id="corrRepeatReasonTable" class="data-table">
+              <thead>
+                <tr>
+                  <th>Main Reason Bucket</th>
+                  <th class="text-right">Silent Consumers</th>
+                  <th class="text-right">Single (1)</th>
+                  <th class="text-right">Repeat (2)</th>
+                  <th class="text-right">Chronic (3+)</th>
+                  <th class="text-right">Open Tickets</th>
+                  <th class="text-right">Multi-Open</th>
+                  <th class="text-center">Repeat %</th>
+                </tr>
+              </thead>
+              <tbody id="corrRepeatReasonTableBody">
+                <!-- Rendered dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Table 3C: Open Tickets Distribution against Same Consumer -->
+        <div class="table-card card">
+          <div class="table-header-flex">
+            <div>
+              <h3><i data-lucide="layers" style="color: var(--accent-cyan); vertical-align: middle; width: 18px; height: 18px;"></i> Open Tickets Volume per Consumer</h3>
+              <p>Frequency distribution of currently open tickets against the same consumer premise</p>
+            </div>
+            <div class="table-actions">
+              <button class="btn btn-sm btn-outline" onclick="exportTableToCSV('corrOpenTicketDistTable', 'open_tickets_per_consumer_distribution.csv')">
+                <i data-lucide="download"></i> Export CSV
+              </button>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table id="corrOpenTicketDistTable" class="data-table">
+              <thead>
+                <tr>
+                  <th>Open Tickets Category</th>
+                  <th class="text-right">Silent Consumers</th>
+                  <th class="text-center">% Share</th>
+                  <th class="text-center">Severity</th>
+                  <th>Operational Action &amp; Field Directive</th>
+                </tr>
+              </thead>
+              <tbody id="corrOpenTicketDistTableBody">
+                <!-- Rendered dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
       <!-- Table 4: Circle Performance Benchmark Table (Screenshot 4 Format) -->
       <div class="table-card card" style="margin-bottom: 20px;">
         <div class="table-header-flex">
@@ -868,7 +966,7 @@
     </div>
 
     <!-- TAB 2: CIRCLE ANALYSIS -->
-    <div id="tab-circle" class="tab-pane">
+    <div id="tab-circle" class="tab-pane active">
       <div class="table-card card">
         <div class="table-header-flex">
           <div>

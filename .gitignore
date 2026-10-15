@@ -38,6 +38,7 @@ data/temp_*.duckdb
 # Keep compressed seed database for cloud deployment
 data/*.gz
 !data/sbpdcl_analytics.duckdb.gz
+!data/sbpdcl_analytics.duckdb.gz.*
 
 # System files
 .DS_Store
