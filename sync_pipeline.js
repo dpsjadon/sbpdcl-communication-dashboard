@@ -42,6 +42,7 @@ async function runSync(options = {}) {
   const doFdrMaster = target === 'all' || target === 'feeder' || target === 'feeder_master';
   const doFdrNonComm = target === 'all' || target === 'feeder' || target === 'feeder_non_comm';
   const doFdrNeverComm = target === 'all' || target === 'feeder' || target === 'feeder_never_comm';
+  const doComplaint = target === 'all' || target === 'complaint' || target === 'onm';
 
   const doConsumer = doConsMaster || doConsComm;
   const doDT = doDTMaster || doDTNonComm || doDTNeverComm;
@@ -286,12 +287,34 @@ async function runSync(options = {}) {
         await page.waitForSelector('#ContentPlaceHolder1_authsub_btnDownloadRequest', { visible: true, timeout: 60000 });
         await page.click('#ContentPlaceHolder1_authsub_btnDownloadRequest');
         await sleep(2500);
-        log('FDR_NEVER_COMM', 74, 'Feeder Never Communicating Report queued.');
+        log('FDR_NEVER_COMM', 73, 'Feeder Never Communicating Report queued.');
       }
     }
 
     // -------------------------------------------------------------
-    // 4. MONITOR QUEUE & DOWNLOAD PROCESSED FILES
+    // 4. ONM COMPLAINT REPORT QUEUEING
+    // -------------------------------------------------------------
+    if (doComplaint) {
+      log('COMPLAINT', 74, 'Queuing OnM Complaint Report from /MDMS/Complaint/Reports/ComplaintReport...');
+      await page.goto('https://mdm.sbpdclinfra.in/MDMS/Complaint/Reports/ComplaintReport', { waitUntil: 'networkidle2', timeout: 45000 });
+      await page.waitForSelector('#ContentPlaceHolder1_authsub_ddlReportType', { timeout: 45000 });
+      await sleep(1000);
+      await page.select('#ContentPlaceHolder1_authsub_ddlReportType', '7');
+      await page.evaluate(() => {
+        const sel = document.getElementById('ContentPlaceHolder1_authsub_ddlReportType');
+        if (sel) sel.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      await sleep(3000);
+      await Promise.all([
+        page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 60000 }).catch(() => {}),
+        page.click('#ContentPlaceHolder1_authsub_btnDownload')
+      ]);
+      await sleep(2500);
+      log('COMPLAINT', 75, 'OnM Complaint Report queued.');
+    }
+
+    // -------------------------------------------------------------
+    // 5. MONITOR QUEUE & DOWNLOAD PROCESSED FILES
     // -------------------------------------------------------------
     log('QUEUE', 76, 'Navigating to Download Queue (/MIS/DownloadRequest.aspx)...');
     try {
@@ -311,6 +334,7 @@ async function runSync(options = {}) {
     if (doFdrMaster) neededTypes.push('Feeder Master Information');
     if (doFdrNonComm) neededTypes.push('Feeder Non Communicating');
     if (doFdrNeverComm) neededTypes.push('Feeder Never');
+    if (doComplaint) neededTypes.push('Complaint');
 
     for (let attempt = 1; attempt <= 45; attempt++) {
       const qPct = 77 + Math.min(15, Math.floor(attempt * 0.35));

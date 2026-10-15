@@ -511,14 +511,23 @@ h1, h2, h3, h4, .brand-title {
 .pill-crimson { background: rgba(239, 68, 68, 0.15); color: var(--accent-crimson); }
 .pill-cyan { background: rgba(6, 182, 212, 0.15); color: var(--accent-cyan); }
 .pill-violet { background: rgba(139, 92, 246, 0.15); color: var(--accent-violet); }
+.pill-purple { background: rgba(168, 85, 247, 0.15); color: #c084fc; }
 .pill-rose { background: rgba(244, 63, 94, 0.15); color: #f43f5e; }
+
+.icon-purple { background: rgba(168, 85, 247, 0.15); color: #c084fc; }
 
 .text-amber { color: var(--accent-amber); }
 .text-emerald { color: var(--accent-emerald); }
 .text-crimson { color: var(--accent-crimson); }
 .text-cyan { color: var(--accent-cyan); }
 .text-violet { color: var(--accent-violet); }
+.text-purple { color: #c084fc; }
 .text-rose { color: #f43f5e; }
+
+.status-blue { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
+.status-cyan { background: rgba(6, 182, 212, 0.15); color: #22d3ee; border: 1px solid rgba(6, 182, 212, 0.3); }
+.status-orange { background: rgba(249, 115, 22, 0.15); color: #fb923c; border: 1px solid rgba(249, 115, 22, 0.3); }
+.status-purple { background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3); }
 
 .interactive-kpi {
   cursor: pointer;
@@ -1049,6 +1058,17 @@ h1, h2, h3, h4, .brand-title {
   color: #000;
 }
 
+.btn-purple {
+  background: rgba(168, 85, 247, 0.15);
+  border: 1px solid #a855f7;
+  color: #c084fc;
+  font-weight: 600;
+}
+.btn-purple:hover {
+  background: #a855f7;
+  color: #fff;
+}
+
 .btn-xs {
   padding: 3px 8px;
   font-size: 0.72rem;
@@ -1090,7 +1110,7 @@ h1, h2, h3, h4, .brand-title {
 
 .downloader-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 16px;
   margin-bottom: 20px;
 }

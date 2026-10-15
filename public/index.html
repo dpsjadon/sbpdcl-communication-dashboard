@@ -72,6 +72,11 @@
           <span>Feeder Meters</span>
           <span class="cat-count-badge" id="badgeFeederCount">3.3K</span>
         </button>
+        <button class="category-pill" data-category="complaint" id="catBtnComplaint">
+          <i data-lucide="clipboard-list"></i>
+          <span>O&amp;M Complaints</span>
+          <span class="cat-count-badge" id="badgeComplaintCount">113.9K</span>
+        </button>
       </div>
 
       <!-- Feeder Voltage & Inactive Feeder Sub-Toggle (Active only for Feeder) -->
@@ -330,6 +335,12 @@
       <button class="nav-tab active" data-tab="tab-overview" id="navTabOverview">
         <i data-lucide="layout-dashboard"></i> Overview
       </button>
+      <button class="nav-tab" data-tab="tab-correlation" id="navTabCorrelation">
+        <i data-lucide="link-2"></i> Ticket Correlation
+      </button>
+      <button class="nav-tab" data-tab="tab-datewise" id="navTabDateWise">
+        <i data-lucide="calendar"></i> Date-wise Analytics
+      </button>
       <button class="nav-tab" data-tab="tab-circle" id="navTabCircle">
         <i data-lucide="map-pin"></i> Circle Analysis
       </button>
@@ -383,6 +394,452 @@
       </div>
 
 
+    </div>
+
+    <!-- TAB 1B: TICKET CORRELATION ANALYTICS -->
+    <div id="tab-correlation" class="tab-pane">
+      
+      <!-- Executive Context Banner -->
+      <div class="correlation-banner card" style="margin-bottom: 20px; padding: 18px 24px; background: linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.9) 100%); border-left: 4px solid var(--accent-cyan); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+        <div>
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 4px;">
+            <span style="font-size: 1.3rem;">⚡</span>
+            <h2 style="font-size: 1.25rem; font-weight: 700; color: #fff; margin: 0;">Non-Communication &amp; O&amp;M Ticket Correlation Intelligence</h2>
+            <span class="badge-status-live"><span class="pulse-dot"></span> LIVE CORRELATION</span>
+          </div>
+          <p style="color: var(--text-muted); font-size: 0.88rem; margin: 0;">
+            Cross-analyzing <strong style="color: var(--accent-amber);">72,090 silent consumer smart meters</strong> against <strong style="color: var(--accent-cyan);">113,863 O&amp;M complaint tickets</strong> to pinpoint unattended action gaps, field bottlenecks, and suspected false closures.
+          </p>
+        </div>
+        <div style="display: flex; gap: 10px;">
+          <button class="btn btn-sm btn-outline" id="corrQuickNonCommBtn" onclick="applyCorrPreset('all')">
+            <i data-lucide="radio"></i> All Silent (72.1K)
+          </button>
+          <button class="btn btn-sm btn-outline" style="border-color: var(--accent-crimson); color: var(--accent-crimson);" onclick="applyCorrPreset('gap')">
+            <i data-lucide="alert-octagon"></i> Unattended Gap (45.2K)
+          </button>
+          <button class="btn btn-sm btn-primary" onclick="exportTableToCSV('corrCircleTable', 'circle_ticket_correlation.csv')">
+            <i data-lucide="download"></i> Export Correlation CSV
+          </button>
+        </div>
+      </div>
+
+      <!-- 7 Executive Correlation KPI Cards -->
+      <section class="kpi-grid" style="margin-bottom: 20px;">
+        <!-- KPI 1: Total Non-Comm Base -->
+        <div class="kpi-card card">
+          <div class="kpi-header">
+            <span class="kpi-label">Total Silent Meters</span>
+            <div class="kpi-icon-wrap icon-amber"><i data-lucide="alert-triangle"></i></div>
+          </div>
+          <div class="kpi-value-wrap">
+            <div class="kpi-value text-amber" id="corrKpiTotalSilent">--</div>
+            <span class="kpi-subtext">&gt;3 Days &amp; Never Comm Base</span>
+          </div>
+          <div class="kpi-footer">
+            <span class="pill pill-amber"><i data-lucide="radio"></i> Total Silent Target</span>
+          </div>
+        </div>
+
+        <!-- KPI 2: Tickets Raised -->
+        <div class="kpi-card card">
+          <div class="kpi-header">
+            <span class="kpi-label">Tickets Raised</span>
+            <div class="kpi-icon-wrap icon-emerald"><i data-lucide="check-circle-2"></i></div>
+          </div>
+          <div class="kpi-value-wrap">
+            <div class="kpi-value text-emerald" id="corrKpiTicketsRaised">--</div>
+            <span class="kpi-subtext" id="corrKpiCoveragePct">--% Coverage</span>
+          </div>
+          <div class="kpi-footer">
+            <span class="pill pill-emerald" id="corrCoveragePill">Logged in O&amp;M</span>
+          </div>
+        </div>
+
+        <!-- KPI 3: No Ticket Raised (Action Gap) -->
+        <div class="kpi-card card">
+          <div class="kpi-header">
+            <span class="kpi-label">No Ticket Raised (Gap)</span>
+            <div class="kpi-icon-wrap icon-rose"><i data-lucide="alert-octagon"></i></div>
+          </div>
+          <div class="kpi-value-wrap">
+            <div class="kpi-value text-rose" id="corrKpiNoTicket">--</div>
+            <span class="kpi-subtext" id="corrKpiGapPct">--% Action Required</span>
+          </div>
+          <div class="kpi-footer">
+            <span class="pill pill-rose"><i data-lucide="bell-off"></i> Unattended Silent Meters</span>
+          </div>
+        </div>
+
+        <!-- KPI 4: Pending Field Action -->
+        <div class="kpi-card card">
+          <div class="kpi-header">
+            <span class="kpi-label">Pending Field Action</span>
+            <div class="kpi-icon-wrap icon-amber"><i data-lucide="clock"></i></div>
+          </div>
+          <div class="kpi-value-wrap">
+            <div class="kpi-value text-amber" id="corrKpiPending">--</div>
+            <span class="kpi-subtext" id="corrKpiPendingPct">Awaiting field visit</span>
+          </div>
+          <div class="kpi-footer">
+            <span class="pill pill-amber"><i data-lucide="hourglass"></i> Field Queue</span>
+          </div>
+        </div>
+
+        <!-- KPI 5: Notify to Discom -->
+        <div class="kpi-card card">
+          <div class="kpi-header">
+            <span class="kpi-label">Notify to Discom</span>
+            <div class="kpi-icon-wrap icon-blue"><i data-lucide="building"></i></div>
+          </div>
+          <div class="kpi-value-wrap">
+            <div class="kpi-value text-blue" id="corrKpiNotifyDiscom">--</div>
+            <span class="kpi-subtext">Pole cut, Door closed, PDCO</span>
+          </div>
+          <div class="kpi-footer">
+            <span class="pill pill-blue"><i data-lucide="send"></i> Discom Action</span>
+          </div>
+        </div>
+
+        <!-- KPI 6: Technician Attended -->
+        <div class="kpi-card card">
+          <div class="kpi-header">
+            <span class="kpi-label">Technician Attended</span>
+            <div class="kpi-icon-wrap icon-cyan"><i data-lucide="wrench"></i></div>
+          </div>
+          <div class="kpi-value-wrap">
+            <div class="kpi-value text-cyan" id="corrKpiAttended">--</div>
+            <span class="kpi-subtext">Visited on site</span>
+          </div>
+          <div class="kpi-footer">
+            <span class="pill pill-cyan"><i data-lucide="user-check"></i> Field Actioned</span>
+          </div>
+        </div>
+
+        <!-- KPI 7: Suspected False Closed -->
+        <div class="kpi-card card">
+          <div class="kpi-header">
+            <span class="kpi-label">Closed (Still Silent)</span>
+            <div class="kpi-icon-wrap icon-purple"><i data-lucide="help-circle"></i></div>
+          </div>
+          <div class="kpi-value-wrap">
+            <div class="kpi-value text-purple" id="corrKpiClosed">--</div>
+            <span class="kpi-subtext">Closed in O&amp;M, Silent in HES</span>
+          </div>
+          <div class="kpi-footer">
+            <span class="pill pill-purple"><i data-lucide="refresh-ccw"></i> Suspected False Closed</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Sub-Filter Controls for Correlation -->
+      <div class="card" style="margin-bottom: 20px; padding: 14px 20px;">
+        <div style="display: flex; gap: 14px; align-items: center; flex-wrap: wrap;">
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <i data-lucide="filter" style="width: 16px; height: 16px; color: var(--accent-cyan);"></i>
+            <span style="font-size: 0.82rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Correlation Slicers:</span>
+          </div>
+
+          <div style="min-width: 160px;">
+            <select id="corrFilterCircle" class="form-select" style="padding: 6px 10px; font-size: 0.85rem;">
+              <option value="ALL">All Circles (SBPDCL)</option>
+            </select>
+          </div>
+
+          <div style="min-width: 160px;">
+            <select id="corrFilterDivision" class="form-select" style="padding: 6px 10px; font-size: 0.85rem;">
+              <option value="ALL">All Divisions</option>
+            </select>
+          </div>
+
+          <div style="min-width: 170px;">
+            <select id="corrFilterCommStatus" class="form-select" style="padding: 6px 10px; font-size: 0.85rem;">
+              <option value="ALL_NON_COMM">All Silent Meters (&gt;3D &amp; Never)</option>
+              <option value=">7D">Non-Comm (&gt;7 Days)</option>
+              <option value="3-7D">Non-Comm (4–7 Days)</option>
+              <option value="NEVER">Never Communicated</option>
+              <option value="COMM_LTE_3D">Communicating (&le;3 Days)</option>
+            </select>
+          </div>
+
+          <div style="min-width: 180px;">
+            <select id="corrFilterTicketStatus" class="form-select" style="padding: 6px 10px; font-size: 0.85rem;">
+              <option value="ALL">All Ticket Statuses</option>
+              <option value="NOT_RAISED">⚠️ No Ticket Raised (Action Gap)</option>
+              <option value="RAISED">✅ Ticket Raised (All)</option>
+              <option value="PENDING">🟡 Pending Field Action</option>
+              <option value="NOTIFY_DISCOM">🔵 Notify to Discom</option>
+              <option value="ATTENDED">🟢 Attended on Site</option>
+              <option value="CLOSED">🟣 Closed (Still Silent)</option>
+              <option value="MR_REQUIRED">🟠 MR Required</option>
+            </select>
+          </div>
+
+          <div style="flex: 1; min-width: 200px;">
+            <input type="text" id="corrFilterSearch" class="form-input" placeholder="Search Circle, Division, Section, Remarks..." style="padding: 6px 12px; font-size: 0.85rem;">
+          </div>
+
+          <button id="corrResetBtn" class="btn btn-sm btn-outline" style="padding: 6px 12px;">
+            <i data-lucide="rotate-ccw"></i> Reset
+          </button>
+        </div>
+      </div>
+
+      <!-- 4 Interactive Charts (2 Dual-Grid Sections) -->
+      <div class="chart-dual-grid" style="margin-bottom: 20px;">
+        <!-- Chart 1: Circle Ticket Coverage -->
+        <div class="chart-card card">
+          <div class="chart-card-header">
+            <div>
+              <h3>Circle Ticket Coverage Benchmark</h3>
+              <p>Tickets Raised vs Unattended Gap across Circles (% Coverage indicated on top)</p>
+            </div>
+            <span class="tag tag-blue">Coverage Benchmark</span>
+          </div>
+          <div class="chart-container">
+            <canvas id="chartCorrCircleCoverage"></canvas>
+          </div>
+        </div>
+
+        <!-- Chart 2: Ticket Status Distribution -->
+        <div class="chart-card card">
+          <div class="chart-card-header">
+            <div>
+              <h3>Ticket Status Distribution (Silent Meters)</h3>
+              <p>Breakdown of current status for raised tickets on non-communicating meters</p>
+            </div>
+            <span class="tag tag-amber">Status Slices</span>
+          </div>
+          <div class="chart-container">
+            <canvas id="chartCorrStatusDonut"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="chart-dual-grid" style="margin-bottom: 20px;">
+        <!-- Chart 3: Non-Comm Duration vs Ticket Status -->
+        <div class="chart-card card">
+          <div class="chart-card-header">
+            <div>
+              <h3>Silent Duration vs Ticket Coverage</h3>
+              <p>Tickets Raised vs Action Gap across Non-Comm duration buckets</p>
+            </div>
+            <span class="tag tag-purple">Aging Breakdown</span>
+          </div>
+          <div class="chart-container">
+            <canvas id="chartCorrAgingVsTicket"></canvas>
+          </div>
+        </div>
+
+        <!-- Chart 4: Top Issue Categories / Remarks -->
+        <div class="chart-card card">
+          <div class="chart-card-header">
+            <div>
+              <h3>Top Root Causes &amp; Issue Categories</h3>
+              <p>Most common O&amp;M Main Remarks for silent consumer meters</p>
+            </div>
+            <span class="tag tag-rose">Root Cause Analysis</span>
+          </div>
+          <div class="chart-container">
+            <canvas id="chartCorrRemarksBar"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cross-Tabulation Tables -->
+      <!-- Table 1: Circle Ticket Correlation Table -->
+      <div class="table-card card" style="margin-bottom: 20px;">
+        <div class="table-header-flex">
+          <div>
+            <h3>Circle Ticket Correlation &amp; Action Gap Performance</h3>
+            <p>Circle-level summary of total silent meters, ticket coverage, unattended gaps, and status breakdown</p>
+          </div>
+          <div class="table-actions">
+            <button class="btn btn-sm btn-outline" onclick="exportTableToCSV('corrCircleTable', 'circle_ticket_correlation.csv')">
+              <i data-lucide="download"></i> Export Circle CSV
+            </button>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table id="corrCircleTable" class="data-table">
+            <thead>
+              <tr>
+                <th>Circle</th>
+                <th>Total Silent Meters</th>
+                <th>Tickets Raised</th>
+                <th>No Ticket Raised (Gap)</th>
+                <th>% Ticket Coverage</th>
+                <th>Pending Field Action</th>
+                <th>Notify to Discom</th>
+                <th>Attended</th>
+                <th>Closed (Still Silent)</th>
+                <th>MR Required</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="corrCircleTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Table 2: Division Breakdown Table -->
+      <div class="table-card card" style="margin-bottom: 20px;">
+        <div class="table-header-flex">
+          <div>
+            <h3>Division Breakdown &amp; Action Gap Table</h3>
+            <p>Division-level drilldown of ticket coverage and field action queue</p>
+          </div>
+          <div class="table-actions">
+            <button class="btn btn-sm btn-outline" onclick="exportTableToCSV('corrDivisionTable', 'division_ticket_correlation.csv')">
+              <i data-lucide="download"></i> Export Division CSV
+            </button>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table id="corrDivisionTable" class="data-table">
+            <thead>
+              <tr>
+                <th>Circle</th>
+                <th>Division</th>
+                <th>Total Silent Meters</th>
+                <th>Tickets Raised</th>
+                <th>No Ticket Raised (Gap)</th>
+                <th>% Ticket Coverage</th>
+                <th>Pending Field Action</th>
+                <th>Notify to Discom</th>
+                <th>Attended</th>
+                <th>Closed (Still Silent)</th>
+                <th>MR Required</th>
+              </tr>
+            </thead>
+            <tbody id="corrDivisionTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Table 3 & 4: Dual Table Row (Duration Matrix & Root Causes) -->
+      <div class="table-dual-grid">
+        <!-- Table 3: Duration Matrix Table -->
+        <div class="table-card card">
+          <div class="table-header-flex">
+            <div>
+              <h3>Silent Duration vs Ticket Status Matrix</h3>
+              <p>Correlation by communication aging categories</p>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Communication Category</th>
+                  <th>Total Silent Base</th>
+                  <th>Tickets Raised</th>
+                  <th>Unattended Gap</th>
+                  <th>% Coverage</th>
+                  <th>Pending</th>
+                  <th>Notify Discom</th>
+                  <th>Closed (Silent)</th>
+                </tr>
+              </thead>
+              <tbody id="corrCommCatTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Table 4: Root Cause Remarks Breakdown -->
+        <div class="table-card card">
+          <div class="table-header-flex">
+            <div>
+              <h3>O&amp;M Remarks &amp; Root Cause Categories</h3>
+              <p>Detailed classification of field findings on silent meters</p>
+            </div>
+            <div class="table-actions">
+              <button class="btn btn-sm btn-outline" onclick="exportTableToCSV('corrRemarksTable', 'remarks_root_causes.csv')">
+                <i data-lucide="download"></i> Export CSV
+              </button>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table id="corrRemarksTable" class="data-table">
+              <thead>
+                <tr>
+                  <th>Main Remarks (Category)</th>
+                  <th>Sub Remarks</th>
+                  <th>Ticket Count</th>
+                  <th>Pending</th>
+                  <th>Notify Discom</th>
+                  <th>Attended</th>
+                  <th>Closed</th>
+                </tr>
+              </thead>
+              <tbody id="corrRemarksTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- TAB 1C: DATE-WISE ANALYTICS -->
+    <div id="tab-datewise" class="tab-pane">
+      <div class="chart-dual-grid" style="margin-bottom: 20px;">
+        <div class="chart-card card">
+          <div class="chart-card-header">
+            <div>
+              <h3 id="dateWiseChartTitle">Daily Ticket Creation &amp; Resolution Trend</h3>
+              <p id="dateWiseChartSubtitle">Daily volume of tickets created vs resolved</p>
+            </div>
+            <span class="tag tag-blue">Daily Volume</span>
+          </div>
+          <div class="chart-container">
+            <canvas id="chartDateTrend"></canvas>
+          </div>
+        </div>
+
+        <div class="chart-card card">
+          <div class="chart-card-header">
+            <div>
+              <h3>Daily Resolution Rate (%)</h3>
+              <p>Percentage of tickets closed on each date</p>
+            </div>
+            <span class="tag tag-emerald">Resolution %</span>
+          </div>
+          <div class="chart-container">
+            <canvas id="chartDateResolution"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="table-card card">
+        <div class="table-header-flex">
+          <div>
+            <h3 id="dateWiseTableTitle">Date-wise Ticket Performance Table</h3>
+            <p id="dateWiseTableSubtitle">Comprehensive date-wise metrics w.r.t tickets, status, and resolution efficiency</p>
+          </div>
+          <div class="table-actions">
+            <button class="btn btn-sm btn-outline" onclick="exportTableToCSV('dateWiseTable', 'date_wise_analysis.csv')">
+              <i data-lucide="download"></i> Export CSV
+            </button>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table id="dateWiseTable" class="data-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Total Tickets</th>
+                <th>Closed / Resolved</th>
+                <th>Open / Pending</th>
+                <th>% Resolution Rate</th>
+                <th>Avg Aging (Days)</th>
+              </tr>
+            </thead>
+            <tbody id="dateWiseTableBody">
+              <!-- Rendered via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
     <!-- TAB 2: CIRCLE ANALYSIS -->
@@ -615,8 +1072,20 @@
             <h3 id="explorerHeaderTitle">Consumer Meter Explorer</h3>
             <p id="meterCountHeader">Showing 0 of 0 matching records</p>
           </div>
-          <div class="table-actions" style="display: flex; gap: 12px; align-items: center;">
-            <div class="search-input-wrap" style="width: 320px;">
+          <div class="table-actions" style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+            <div id="consumerTicketFilterWrap" style="min-width: 200px;">
+              <select id="filterMeterTicketStatus" class="form-select" style="padding: 7px 12px; font-size: 0.85rem;">
+                <option value="ALL">All Ticket Statuses</option>
+                <option value="NOT_RAISED">⚠️ No Ticket Raised (Action Gap)</option>
+                <option value="RAISED">✅ Ticket Raised (All)</option>
+                <option value="PENDING">🟡 Pending Field Action</option>
+                <option value="NOTIFY_DISCOM">🔵 Notify to Discom</option>
+                <option value="ATTENDED">🟢 Attended on Site</option>
+                <option value="CLOSED">🟣 Closed (Still Silent)</option>
+                <option value="MR_REQUIRED">🟠 MR Required</option>
+              </select>
+            </div>
+            <div class="search-input-wrap" style="width: 300px;">
               <i data-lucide="search" class="search-icon"></i>
               <input type="text" id="filterSearch" class="form-input" placeholder="Search MSN, Consumer ID, Name, Feeder, DT...">
             </div>
@@ -696,12 +1165,16 @@
             <button id="quickSyncFeederBtn" class="btn btn-xs btn-emerald">
               <i data-lucide="activity"></i> <span>Download Feeder Reports</span>
             </button>
+            <button id="quickSyncComplaintBtn" class="btn btn-xs btn-purple">
+              <i data-lucide="clipboard-list"></i> <span>Download O&amp;M Complaints</span>
+            </button>
           </div>
           <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
             <div class="batch-checkboxes">
               <label><input type="checkbox" id="chkConsumer" checked> <span>Consumer</span></label>
               <label><input type="checkbox" id="chkDT" checked> <span>DT</span></label>
               <label><input type="checkbox" id="chkFeeder" checked> <span>Feeder</span></label>
+              <label><input type="checkbox" id="chkComplaint" checked> <span>Complaints</span></label>
             </div>
             <button id="btnSyncSelected" class="btn btn-sm btn-primary">
               <i data-lucide="download-cloud"></i> <span>Sync Selected</span>
@@ -709,7 +1182,7 @@
           </div>
         </div>
 
-        <!-- 3 Cards for Consumer, DT, and Feeder -->
+        <!-- 4 Cards for Consumer, DT, Feeder, and O&M Complaints -->
         <div class="downloader-grid">
           <!-- Card 1: Consumer -->
           <div class="downloader-card">
@@ -764,6 +1237,25 @@
             <div class="downloader-card-footer">
               <button class="btn btn-sm btn-emerald w-100" id="btnSyncFeederOnly" style="width: 100%;">
                 <i data-lucide="download"></i> Download Feeder Reports
+              </button>
+            </div>
+          </div>
+
+          <!-- Card 4: O&M Complaints -->
+          <div class="downloader-card">
+            <div class="downloader-card-header">
+              <div class="downloader-card-title">
+                <i data-lucide="clipboard-list" class="text-purple" style="color: #c084fc;"></i>
+                <span>O&amp;M Complaints</span>
+              </div>
+              <span class="report-status-badge badge-downloaded" id="badgeStatusComplaint">1/1 Active</span>
+            </div>
+            <div class="report-item-list" id="listComplaintReports">
+              <!-- Rendered Dynamically via JS -->
+            </div>
+            <div class="downloader-card-footer">
+              <button class="btn btn-sm btn-purple w-100" id="btnSyncComplaintOnly" style="width: 100%;">
+                <i data-lucide="download"></i> Download O&amp;M Complaints
               </button>
             </div>
           </div>

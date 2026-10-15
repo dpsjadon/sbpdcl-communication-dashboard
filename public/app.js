@@ -38,6 +38,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupTheme();
   setupEventListeners();
   setupCategorySwitcher();
+  setupCorrelationFilters();
   setupDownloaderHub();
   await loadReportStatuses();
   await loadInitialData();
@@ -272,6 +273,36 @@ function updateFilterLabelsForCategory() {
     if (explorerTitle) explorerTitle.textContent = 'Feeder Meter Explorer';
     if (searchInput) searchInput.placeholder = 'Search MSN, Feeder Code, Feeder Name, Substation...';
     if (exportBtnText) exportBtnText.textContent = 'Export Feeder CSV';
+
+  } else if (state.category === 'complaint') {
+    if (headerSubtitle) headerSubtitle.textContent = 'O&M Complaint / Ticket Resolution, Aging & Remarks Analytics';
+    if (filterTitle) filterTitle.textContent = 'Ticket Hierarchy, Status & Remarks Filters';
+    if (lblPhase) lblPhase.textContent = 'Main Remarks';
+    if (lblComm) lblComm.textContent = 'Sub Remarks';
+
+    if (tabDimensions) tabDimensions.innerHTML = '<i data-lucide="message-square"></i> Main &amp; Sub Remarks';
+    if (tabAging) tabAging.innerHTML = '<i data-lucide="hourglass"></i> Aging &amp; Ticket Status';
+    if (tabMeters) tabMeters.innerHTML = '<i data-lucide="list-filter"></i> Ticket Explorer';
+
+    if (circleTitle) circleTitle.textContent = 'Circle Complaint Resolution Summary';
+    if (circleSubtitle) circleSubtitle.textContent = 'Ticket volume, resolution rates, and pending backlog across circles';
+    if (divisionTitle) divisionTitle.textContent = 'Division Complaint Breakdown';
+    if (divisionSubtitle) divisionSubtitle.textContent = 'Division level ticket distribution and resolution efficiency';
+    if (sectionTitle) sectionTitle.textContent = 'Section Complaint Drilldown';
+    if (sectionSubtitle) sectionSubtitle.textContent = 'Section level complaint resolution and aging analysis';
+
+    if (tab5T1Title) tab5T1Title.textContent = 'Main Remarks Analytics';
+    if (tab5T1Subtitle) tab5T1Subtitle.textContent = 'Top failure categories & field remarks performance';
+    if (tab5T1ColHead) tab5T1ColHead.textContent = 'Main Remarks';
+
+    if (tab6T1Title) tab6T1Title.textContent = 'Sub Remarks Breakdown';
+    if (tab6T1Subtitle) tab6T1Subtitle.textContent = 'Root cause analysis and sub remarks resolution rate';
+    if (tab6Col1) tab6Col1.textContent = 'Main Remarks';
+    if (tab6Col2) tab6Col2.textContent = 'Sub Remarks';
+
+    if (explorerTitle) explorerTitle.textContent = 'O&M Complaint Ticket Explorer';
+    if (searchInput) searchInput.placeholder = 'Search Ticket No, Consumer ID, MSN, Remarks, Feeder, DTR...';
+    if (exportBtnText) exportBtnText.textContent = 'Export Complaints CSV';
   }
 
   renderExplorerThead();
@@ -288,16 +319,16 @@ function renderExplorerThead() {
         <th>MSN</th>
         <th>Consumer ID</th>
         <th>Consumer Name</th>
-        <th>Circle</th>
-        <th>Division</th>
-        <th>Section</th>
+        <th>Hierarchy (Circle/Div/Sec)</th>
         <th>Feeder / DT</th>
-        <th>Phase</th>
-        <th>Make</th>
-        <th>Technology</th>
-        <th>Last Comm Timestamp</th>
-        <th>Aging (Days)</th>
-        <th>Status</th>
+        <th>Phase / Make</th>
+        <th>Ageing</th>
+        <th>Comm Status</th>
+        <th class="text-center">Ticket Raised?</th>
+        <th>Ticket Status</th>
+        <th>Ticket No</th>
+        <th>Category / Remarks</th>
+        <th>Ticket Date</th>
       </tr>
     `;
   } else if (state.category === 'dt') {
@@ -334,6 +365,24 @@ function renderExplorerThead() {
         <th>Last Comm Timestamp</th>
         <th>Aging (Days)</th>
         <th>Status</th>
+      </tr>
+    `;
+  } else if (state.category === 'complaint') {
+    thead.innerHTML = `
+      <tr>
+        <th>Ticket No</th>
+        <th>Ticket Date</th>
+        <th>Consumer ID</th>
+        <th>Consumer Name</th>
+        <th>Circle</th>
+        <th>Division</th>
+        <th>Section</th>
+        <th>Feeder / DTR</th>
+        <th>MSN</th>
+        <th>Status</th>
+        <th>Aging (Days)</th>
+        <th>Main Remarks</th>
+        <th>Sub Remarks</th>
       </tr>
     `;
   }
@@ -442,10 +491,15 @@ function populateFilterOptions(data) {
         <option value="11 KV">11 KV Feeders</option>
         <option value="33 KV">33 KV Feeders</option>
       `;
+    } else if (state.category === 'complaint') {
+      phaseSelect.innerHTML = '<option value="ALL">All Main Remarks</option>';
+      (data.main_remarks || []).forEach(r => {
+        phaseSelect.innerHTML += `<option value="${r}">${r}</option>`;
+      });
     }
   }
 
-  // Dynamic Comm Tech / Feeder Type / DTR Type
+  // Dynamic Comm Tech / Feeder Type / DTR Type / Sub Remarks
   const commSelect = document.getElementById('filterCommunication');
   if (commSelect) {
     if (state.category === 'consumer') {
@@ -465,6 +519,64 @@ function populateFilterOptions(data) {
       (data.feeder_types || ['Rural', 'Urban']).forEach(t => {
         commSelect.innerHTML += `<option value="${t}">${t}</option>`;
       });
+    } else if (state.category === 'complaint') {
+      commSelect.innerHTML = '<option value="ALL">All Sub Remarks</option>';
+      (data.sub_remarks || []).forEach(sr => {
+        commSelect.innerHTML += `<option value="${sr}">${sr}</option>`;
+      });
+    }
+  }
+
+  // Dynamic Status Select Options
+  const statusSelect = document.getElementById('filterStatus');
+  if (statusSelect) {
+    if (state.category === 'complaint') {
+      statusSelect.innerHTML = `
+        <option value="ALL">All Ticket Statuses</option>
+        <option value="Closed">Closed / Resolved</option>
+        <option value="Pending">Pending</option>
+        <option value="Attended">Attended</option>
+        <option value="Notify to Discom">Notify to Discom</option>
+        <option value="MR Required">MR Required</option>
+        <option value="Notify to SI">Notify to SI</option>
+      `;
+    } else {
+      statusSelect.innerHTML = `
+        <option value="ALL">All Meters (Installed Base)</option>
+        <option value="ALL_NON_COMM">Non-Communicating</option>
+        <option value="3-7D">3 – 7 Days</option>
+        <option value=">7D">&gt; 7 Days</option>
+        <option value="COMM_LTE_3D">Communicating</option>
+        <option value="NEVER">Never Communicated</option>
+      `;
+    }
+  }
+
+  // Dynamic Aging Select Options
+  const agingSelect = document.getElementById('filterAging');
+  if (agingSelect) {
+    if (state.category === 'complaint') {
+      agingSelect.innerHTML = `
+        <option value="ALL">All Aging Buckets</option>
+        <option value="<= 2 Days">&le; 2 Days</option>
+        <option value="3 - 7 Days">3 - 7 Days</option>
+        <option value="8 - 15 Days">8 - 15 Days</option>
+        <option value="16 - 30 Days">16 - 30 Days</option>
+        <option value="> 30 Days">&gt; 30 Days</option>
+      `;
+    } else {
+      agingSelect.innerHTML = `
+        <option value="ALL">All Intervals</option>
+        <option value="<= 3 Days">&le; 3 Days (Comm)</option>
+        <option value="4 - 7 Days">4 - 7 Days</option>
+        <option value="8 - 15 Days">8 - 15 Days</option>
+        <option value="16 - 30 Days">16 - 30 Days</option>
+        <option value="31 - 60 Days">31 - 60 Days</option>
+        <option value="61 - 90 Days">61 - 90 Days</option>
+        <option value="91 - 180 Days">91 - 180 Days</option>
+        <option value="> 180 Days">&gt; 180 Days</option>
+        <option value="Never Communicated">Never Communicated</option>
+      `;
     }
   }
 }
@@ -552,6 +664,69 @@ function renderKPIs() {
   if (!state.currentData) return;
   const kpi = state.currentData.kpi || state.currentData.kpis || state.currentData.overview || {};
 
+  if (state.category === 'complaint') {
+    const totalTickets = Number(kpi.total_tickets || kpi.total_installed) || 0;
+    const closedTickets = Number(kpi.closed_tickets || kpi.total_communicating) || 0;
+    const openTickets = Number(kpi.open_tickets || kpi.total_non_comm) || 0;
+    const resRate = kpi.resolution_pct !== undefined ? kpi.resolution_pct : (totalTickets > 0 ? ((closedTickets / totalTickets) * 100).toFixed(2) : 0);
+    const pendingTickets = Number(kpi.pending_tickets) || 0;
+    const attendedTickets = Number(kpi.attended_tickets) || 0;
+    const discomTickets = Number(kpi.notify_discom_tickets) || 0;
+    const age3_7d = Number(kpi.age_3_7d) || 0;
+    const ageGt7d = (Number(kpi.age_8_15d) || 0) + (Number(kpi.age_16_30d) || 0) + (Number(kpi.age_gt_30d) || 0);
+    const ageGt30d = Number(kpi.age_gt_30d) || 0;
+
+    // 1. Total Installation -> Total Complaints
+    const elTotal = document.getElementById('kpiTotalInstalled');
+    if (elTotal) elTotal.textContent = formatNum(totalTickets);
+    const elSubTotal = document.getElementById('kpiSubtextTotal');
+    if (elSubTotal) elSubTotal.textContent = 'O&M Complaint Base';
+
+    // 2. Communicating -> Closed / Resolved
+    const elComm = document.getElementById('kpiTotalComm') || document.getElementById('kpiCommunicating');
+    if (elComm) elComm.textContent = formatNum(closedTickets);
+    const elSubComm = document.getElementById('kpiSubtextComm');
+    if (elSubComm) elSubComm.textContent = 'Resolved / Closed Tickets';
+    const elCommPill = document.getElementById('kpiCommRatePill');
+    if (elCommPill) elCommPill.innerHTML = `<i data-lucide="check-circle-2"></i> ${resRate}% Resolution`;
+
+    // 3. Non-Communicating -> Open / Pending
+    const elNonComm = document.getElementById('kpiTotalNonComm');
+    if (elNonComm) elNonComm.textContent = formatNum(openTickets);
+    const elNonCommRate = document.getElementById('kpiNonCommPctPill') || document.getElementById('kpiNonCommRate');
+    if (elNonCommRate) {
+      const openPct = totalTickets > 0 ? ((openTickets / totalTickets) * 100).toFixed(2) : 0;
+      elNonCommRate.textContent = `${openPct}% Open Backlog`;
+    }
+    const elSplit = document.getElementById('kpiNonCommSplit');
+    if (elSplit) {
+      elSplit.innerHTML = `<span>Pending: ${formatNum(pendingTickets)}</span> • <span>Attended: ${formatNum(attendedTickets)}</span> • <span>Discom: ${formatNum(discomTickets)}</span>`;
+    }
+
+    // 4. % Communication -> % Resolution Rate
+    const elRate = document.getElementById('kpiCommRate');
+    if (elRate) elRate.textContent = `${resRate}%`;
+    const elBar = document.getElementById('kpiCommRateBar');
+    if (elBar) elBar.style.width = `${Math.min(100, Math.max(0, resRate))}%`;
+
+    // 5. 3 - 7 Days
+    const el4_7 = document.getElementById('kpiNonComm4_7D');
+    if (el4_7) el4_7.textContent = formatNum(age3_7d);
+
+    // 6. > 7 Days
+    const elGt7 = document.getElementById('kpiNonCommGt7D');
+    if (elGt7) elGt7.textContent = formatNum(ageGt7d);
+
+    // 7. Never Communicated -> >30 Days Critical
+    const elNever = document.getElementById('kpiNeverComm');
+    if (elNever) elNever.textContent = formatNum(ageGt30d);
+    const elNeverPill = document.getElementById('kpiNeverCommPill');
+    if (elNeverPill) elNeverPill.innerHTML = `<i data-lucide="alert-circle"></i> >30 Days Aging`;
+
+    if (window.lucide) lucide.createIcons();
+    return;
+  }
+
   const totalInstalled = Number(kpi.total_installed) || 0;
   const totalComm = Number(kpi.total_communicating) || 0;
   const totalNonComm = Number(kpi.total_non_comm) || 0;
@@ -633,6 +808,87 @@ function renderKPIs() {
 function renderCharts() {
   renderCircleCommChart();
   renderAgingChart();
+  renderDateWiseCharts();
+}
+
+function renderDateWiseCharts() {
+  const trendCtx = document.getElementById('chartDateTrend')?.getContext('2d');
+  const resCtx = document.getElementById('chartDateResolution')?.getContext('2d');
+  if (!trendCtx || !resCtx) return;
+
+  if (state.charts.dateTrend) state.charts.dateTrend.destroy();
+  if (state.charts.dateResolution) state.charts.dateResolution.destroy();
+
+  const trendData = (state.currentData?.date_trend || []).slice(-30); // show last 30 active days
+  if (trendData.length === 0) return;
+
+  const labels = trendData.map(d => d.day);
+  const totalTickets = trendData.map(d => Number(d.total_tickets) || 0);
+  const closedTickets = trendData.map(d => Number(d.closed_tickets) || 0);
+  const resPcts = trendData.map(d => Number(d.resolution_pct) || 0);
+
+  state.charts.dateTrend = new Chart(trendCtx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Total Created',
+          data: totalTickets,
+          backgroundColor: '#3b82f6',
+          borderRadius: 4
+        },
+        {
+          label: 'Closed / Resolved',
+          data: closedTickets,
+          backgroundColor: '#10b981',
+          borderRadius: 4
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'top', labels: { color: '#9ca3af', boxWidth: 12 } },
+        datalabels: { display: false }
+      },
+      scales: {
+        y: { beginAtZero: true, grid: { color: 'rgba(255, 255, 255, 0.05)' } },
+        x: { grid: { display: false }, ticks: { maxRotation: 45, minRotation: 45, font: { size: 9 } } }
+      }
+    }
+  });
+
+  state.charts.dateResolution = new Chart(resCtx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: '% Resolution Rate',
+          data: resPcts,
+          borderColor: '#10b981',
+          backgroundColor: 'rgba(16, 185, 129, 0.15)',
+          fill: true,
+          tension: 0.3,
+          pointRadius: 3
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'top', labels: { color: '#9ca3af', boxWidth: 12 } },
+        datalabels: { display: false }
+      },
+      scales: {
+        y: { min: 0, max: 100, grid: { color: 'rgba(255, 255, 255, 0.05)' } },
+        x: { grid: { display: false }, ticks: { maxRotation: 45, minRotation: 45, font: { size: 9 } } }
+      }
+    }
+  });
 }
 
 function renderCircleCommChart() {
@@ -654,7 +910,7 @@ function renderCircleCommChart() {
     data: {
       labels,
       datasets: [{
-        label: 'Communication %',
+        label: state.category === 'complaint' ? 'Resolution %' : 'Communication %',
         data,
         backgroundColor: data.map(v => v >= 95 ? '#10b981' : v >= 90 ? '#06b6d4' : v >= 85 ? '#f59e0b' : '#ef4444'),
         borderRadius: 4
@@ -704,7 +960,7 @@ function renderAgingChart() {
     data: {
       labels,
       datasets: [{
-        label: 'Meters Count',
+        label: state.category === 'complaint' ? 'Tickets Count' : 'Meters Count',
         data,
         backgroundColor: '#06b6d4',
         borderRadius: 4
@@ -742,6 +998,7 @@ function rebuildCharts() {
 
 // --- Render Tables ---
 function renderAllTables() {
+  renderDateWiseTable();
   renderCircleTable();
   renderDivisionTable();
   renderSectionTable();
@@ -751,6 +1008,60 @@ function renderAllTables() {
   renderAgingTable();
 }
 
+function renderDateWiseTable() {
+  const tbody = document.getElementById('dateWiseTableBody');
+  if (!tbody) return;
+  const trendData = state.currentData?.date_trend || [];
+
+  if (trendData.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center">No date records found for selected filters</td></tr>';
+    return;
+  }
+
+  // Sort descending by date (most recent first)
+  const sorted = [...trendData].sort((a, b) => (b.day || '').localeCompare(a.day || ''));
+  let totTickets = 0, totClosed = 0, totOpen = 0;
+
+  const rows = sorted.map(d => {
+    const t = Number(d.total_tickets) || 0;
+    const c = Number(d.closed_tickets) || 0;
+    const o = Number(d.open_tickets) || 0;
+    const rPct = d.resolution_pct !== undefined ? d.resolution_pct : (t > 0 ? ((c / t) * 100).toFixed(2) : 0);
+    totTickets += t;
+    totClosed += c;
+    totOpen += o;
+
+    return `
+      <tr>
+        <td><strong>${d.day}</strong></td>
+        <td>${formatNum(t)}</td>
+        <td class="text-emerald font-semibold">${formatNum(c)}</td>
+        <td class="text-amber font-semibold">${formatNum(o)}</td>
+        <td><span class="badge ${rPct >= 80 ? 'badge-success' : (rPct >= 50 ? 'badge-warning' : 'badge-danger')}">${rPct}%</span></td>
+        <td>
+          <div style="font-size: 0.8rem; color: var(--text-secondary);">
+            Closed: ${formatNum(c)} (${rPct}%) • Open: ${formatNum(o)}
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  const overallPct = totTickets > 0 ? ((totClosed / totTickets) * 100).toFixed(2) : 0;
+  const totalRow = `
+    <tr class="table-total-row" style="font-weight: 700; background: rgba(255,255,255,0.06); border-top: 2px solid var(--border-color);">
+      <td><strong>TOTAL (${sorted.length} Days)</strong></td>
+      <td>${formatNum(totTickets)}</td>
+      <td class="text-emerald font-bold">${formatNum(totClosed)}</td>
+      <td class="text-amber font-bold">${formatNum(totOpen)}</td>
+      <td><span class="badge ${overallPct >= 80 ? 'badge-success' : 'badge-warning'}">${overallPct}%</span></td>
+      <td>--</td>
+    </tr>
+  `;
+
+  tbody.innerHTML = rows + totalRow;
+}
+
 function renderCircleTable() {
   const tbody = document.getElementById('circleTableBody');
   if (!tbody) return;
@@ -758,6 +1069,55 @@ function renderCircleTable() {
 
   if (circles.length === 0) {
     tbody.innerHTML = '<tr><td colspan="8" class="text-center">No matching records</td></tr>';
+    return;
+  }
+
+  if (state.category === 'complaint') {
+    let totTickets = 0, totClosed = 0, totOpen = 0, totLte2 = 0, tot3_7 = 0, totGt7 = 0;
+    const rows = circles.map(c => {
+      const tickets = Number(c.total_tickets || c.total_installed) || 0;
+      const closed = Number(c.closed_tickets || c.communicating) || 0;
+      const open = Number(c.open_tickets || c.total_non_comm) || 0;
+      const resPct = c.resolution_pct !== undefined ? c.resolution_pct : c.comm_pct;
+      const lte2 = Number(c.age_lte_2d) || 0;
+      const d3_7 = Number(c.age_3_7d) || 0;
+      const gt7 = (Number(c.age_8_15d) || 0) + (Number(c.age_16_30d) || 0) + (Number(c.age_gt_30d) || 0);
+
+      totTickets += tickets;
+      totClosed += closed;
+      totOpen += open;
+      totLte2 += lte2;
+      tot3_7 += d3_7;
+      totGt7 += gt7;
+
+      return `
+        <tr>
+          <td><strong>${c.circle}</strong></td>
+          <td>${formatNum(tickets)}</td>
+          <td class="text-emerald font-semibold">${formatNum(closed)}</td>
+          <td class="text-amber font-semibold">${formatNum(open)}</td>
+          <td><span class="badge ${resPct >= 80 ? 'badge-success' : (resPct >= 50 ? 'badge-warning' : 'badge-danger')}">${resPct}%</span></td>
+          <td>${formatNum(lte2)}</td>
+          <td>${formatNum(d3_7)}</td>
+          <td class="text-crimson">${formatNum(gt7)}</td>
+        </tr>
+      `;
+    }).join('');
+
+    const overallResPct = totTickets > 0 ? ((totClosed / totTickets) * 100).toFixed(2) : 0;
+    const totalRow = `
+      <tr class="table-total-row" style="font-weight: 700; background: rgba(255,255,255,0.06); border-top: 2px solid var(--border-color);">
+        <td><strong>TOTAL</strong></td>
+        <td>${formatNum(totTickets)}</td>
+        <td class="text-emerald font-bold">${formatNum(totClosed)}</td>
+        <td class="text-amber font-bold">${formatNum(totOpen)}</td>
+        <td><span class="badge ${overallResPct >= 80 ? 'badge-success' : 'badge-warning'}">${overallResPct}%</span></td>
+        <td>${formatNum(totLte2)}</td>
+        <td>${formatNum(tot3_7)}</td>
+        <td class="text-crimson">${formatNum(totGt7)}</td>
+      </tr>
+    `;
+    tbody.innerHTML = rows + totalRow;
     return;
   }
 
@@ -1100,21 +1460,49 @@ function renderMetersTable(meters) {
     }
 
     if (state.category === 'consumer') {
+      const isRaised = m.ticket_raised === 'YES';
+      const raisedBadge = isRaised
+        ? `<span class="badge badge-success" style="font-size: 0.72rem; font-weight: 700; padding: 2px 7px;"><i data-lucide="check" style="width: 11px; height: 11px; vertical-align: middle;"></i> YES</span>`
+        : `<span class="badge badge-crimson" style="font-size: 0.72rem; font-weight: 700; padding: 2px 7px;"><i data-lucide="x" style="width: 11px; height: 11px; vertical-align: middle;"></i> NO</span>`;
+
+      let statusBadge = `<span class="status-pill status-neutral" style="font-size: 0.72rem;">No Ticket</span>`;
+      if (isRaised) {
+        const st = m.ticket_status || 'Pending';
+        if (st === 'Pending') statusBadge = `<span class="status-pill status-3-7d font-semibold" style="font-size: 0.72rem;">Pending</span>`;
+        else if (st === 'Notify to Discom') statusBadge = `<span class="status-pill" style="background: rgba(59,130,246,0.15); color: #60a5fa; border: 1px solid rgba(59,130,246,0.3); font-size: 0.72rem; font-weight: 600;">Discom Action</span>`;
+        else if (st === 'Attended') statusBadge = `<span class="status-pill" style="background: rgba(6,182,212,0.15); color: #22d3ee; border: 1px solid rgba(6,182,212,0.3); font-size: 0.72rem; font-weight: 600;">Attended</span>`;
+        else if (st === 'Closed') statusBadge = `<span class="status-pill" style="background: rgba(168,85,247,0.15); color: #c084fc; border: 1px solid rgba(168,85,247,0.3); font-size: 0.72rem; font-weight: 600;" title="Closed in O&M but meter is currently silent">Closed (Silent)</span>`;
+        else if (st === 'MR Required') statusBadge = `<span class="status-pill" style="background: rgba(249,115,22,0.15); color: #fb923c; border: 1px solid rgba(249,115,22,0.3); font-size: 0.72rem; font-weight: 600;">MR Required</span>`;
+        else statusBadge = `<span class="status-pill status-neutral" style="font-size: 0.72rem;">${st}</span>`;
+      }
+
+      const ticketNoDisplay = isRaised && m.ticket_no && m.ticket_no !== '-'
+        ? `<span class="mono-badge font-bold" style="color: var(--accent-cyan); font-size: 0.76rem;">${m.ticket_no}</span>`
+        : `<span style="color: var(--text-muted); font-size: 0.75rem;">-</span>`;
+
+      const categoryRemarks = isRaised && m.main_remarks && m.main_remarks !== '-'
+        ? `<div style="max-width: 170px; line-height: 1.25;"><span style="font-size: 0.78rem; font-weight: 600; color: #fff;">${m.main_remarks}</span>${m.sub_remarks && m.sub_remarks !== m.main_remarks && m.sub_remarks !== '-' ? `<div style="font-size: 0.72rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${m.sub_remarks}</div>` : ''}</div>`
+        : `<span style="color: var(--text-muted); font-size: 0.75rem;">-</span>`;
+
+      const ticketDateDisplay = isRaised && m.ticket_date && m.ticket_date !== '-'
+        ? `<div style="font-size: 0.76rem; white-space: nowrap;">${m.ticket_date}<div style="color: var(--text-muted); font-size: 0.7rem;">(${m.ticket_aging}d age)</div></div>`
+        : `<span style="color: var(--text-muted); font-size: 0.75rem;">-</span>`;
+
       return `
         <tr>
           <td><span class="mono-badge">${m.msn || '--'}</span></td>
           <td>${m.consumer_id || '--'}</td>
-          <td>${m.name || '--'}</td>
-          <td>${m.circle || '--'}</td>
-          <td>${m.division || '--'}</td>
-          <td>${m.section || '--'}</td>
-          <td>${m.feeder || m.dt_name || '--'}</td>
-          <td>${m.phase || '--'}</td>
-          <td>${m.make || '--'}</td>
-          <td>${m.communication_type || m.hes_source || '--'}</td>
-          <td>${m.last_reading_time || 'Never'}</td>
-          <td class="${m.ageing > 7 ? 'text-crimson font-semibold' : ''}">${m.ageing !== 999 ? m.ageing + ' Days' : '--'}</td>
+          <td><strong>${m.name || '--'}</strong></td>
+          <td><span style="font-size: 0.78rem;">${m.circle || '--'} / ${m.division || '--'}<div style="color: var(--text-muted); font-size: 0.72rem;">${m.section || '--'}</div></span></td>
+          <td><span style="font-size: 0.78rem;">${m.feeder || '--'}<div style="color: var(--text-muted); font-size: 0.72rem;">${m.dt_name || '--'}</div></span></td>
+          <td><span style="font-size: 0.78rem;">${m.phase || '--'}<div style="color: var(--text-muted); font-size: 0.72rem;">${m.make || '--'} (${m.communication_type || '--'})</div></span></td>
+          <td class="${m.ageing > 7 ? 'text-crimson font-semibold' : ''}">${m.ageing !== 999 ? m.ageing + 'd' : '--'}</td>
           <td>${statusPill}</td>
+          <td class="text-center">${raisedBadge}</td>
+          <td>${statusBadge}</td>
+          <td>${ticketNoDisplay}</td>
+          <td>${categoryRemarks}</td>
+          <td>${ticketDateDisplay}</td>
         </tr>
       `;
     } else if (state.category === 'dt') {
@@ -1133,6 +1521,26 @@ function renderMetersTable(meters) {
           <td>${m.last_reading_time || 'Never'}</td>
           <td class="${m.ageing > 7 ? 'text-crimson font-semibold' : ''}">${m.ageing !== 999 ? m.ageing + ' Days' : '--'}</td>
           <td>${statusPill}</td>
+        </tr>
+      `;
+    } else if (state.category === 'complaint') {
+      const statusClass = (m.comm_category === 'Closed' ? 'status-communicating' : (m.comm_category === 'Attended' ? 'status-comm_lte_3d' : 'status-3-7d'));
+      const statusPill = `<span class="status-pill ${statusClass}">${m.comm_category || 'Pending'}</span>`;
+      return `
+        <tr>
+          <td><span class="mono-badge">${m.msn || '--'}</span></td>
+          <td>${m.installed_date || '--'}</td>
+          <td>${m.consumer_id || '--'}</td>
+          <td>${m.name || '--'}</td>
+          <td>${m.circle || '--'}</td>
+          <td>${m.division || '--'}</td>
+          <td>${m.section || '--'}</td>
+          <td>${m.feeder || m.dt_name || '--'}</td>
+          <td>${m.meter_no || '--'}</td>
+          <td>${statusPill}</td>
+          <td class="${m.ageing > 7 ? 'text-crimson font-semibold' : ''}">${m.ageing !== undefined ? m.ageing + ' Days' : '--'}</td>
+          <td>${m.phase || '--'}</td>
+          <td>${m.make || '--'}</td>
         </tr>
       `;
     } else {
@@ -1165,6 +1573,9 @@ async function loadMetersTable() {
   if (window.lucide) lucide.createIcons();
 
   try {
+    const ticketFilterEl = document.getElementById('filterMeterTicketStatus');
+    const ticketStatusFilter = ticketFilterEl ? ticketFilterEl.value : 'ALL';
+
     const params = new URLSearchParams({
       category: state.category,
       voltage: state.voltage,
@@ -1180,8 +1591,12 @@ async function loadMetersTable() {
       make: state.filters.make || 'ALL',
       communication: state.filters.communication || 'ALL',
       feeder_type: state.filters.communication || 'ALL',
+      main_remarks: state.filters.phase || 'ALL',
+      sub_remarks: state.filters.communication || 'ALL',
+      ticket_status: state.filters.status || 'ALL',
       status: state.filters.status || 'ALL',
-      aging_bucket: state.filters.aging || 'ALL'
+      aging_bucket: state.filters.aging || 'ALL',
+      ticket_status_filter: ticketStatusFilter
     });
 
     const res = await fetch(`/api/meters?${params.toString()}`);
@@ -1227,8 +1642,21 @@ function setupEventListeners() {
       tab.classList.add('active');
       const targetPane = document.getElementById(tab.dataset.tab);
       if (targetPane) targetPane.classList.add('active');
+
+      if (tab.dataset.tab === 'tab-correlation') {
+        loadTicketCorrelationData();
+      }
     });
   });
+
+  // Ticket Status filter in Consumer Explorer
+  const meterTicketSelect = document.getElementById('filterMeterTicketStatus');
+  if (meterTicketSelect) {
+    meterTicketSelect.addEventListener('change', () => {
+      state.metersPage = 1;
+      loadMetersTable();
+    });
+  }
 
   // Filter change handlers
   const filterInputs = [
@@ -1335,11 +1763,13 @@ function setupDownloaderHub() {
   document.getElementById('quickSyncConsumerBtn')?.addEventListener('click', () => triggerSync('consumer'));
   document.getElementById('quickSyncDTBtn')?.addEventListener('click', () => triggerSync('dt'));
   document.getElementById('quickSyncFeederBtn')?.addEventListener('click', () => triggerSync('feeder'));
+  document.getElementById('quickSyncComplaintBtn')?.addEventListener('click', () => triggerSync('complaint'));
 
   // Separate Download Buttons (Card Footers)
   document.getElementById('btnSyncConsumerOnly')?.addEventListener('click', () => triggerSync('consumer'));
   document.getElementById('btnSyncDTOnly')?.addEventListener('click', () => triggerSync('dt'));
   document.getElementById('btnSyncFeederOnly')?.addEventListener('click', () => triggerSync('feeder'));
+  document.getElementById('btnSyncComplaintOnly')?.addEventListener('click', () => triggerSync('complaint'));
 
   // Refresh Status Button
   document.getElementById('btnRefreshReportStatus')?.addEventListener('click', async () => {
@@ -1357,16 +1787,19 @@ function setupDownloaderHub() {
     const cons = document.getElementById('chkConsumer')?.checked;
     const dt = document.getElementById('chkDT')?.checked;
     const fdr = document.getElementById('chkFeeder')?.checked;
+    const comp = document.getElementById('chkComplaint')?.checked;
 
-    if (cons && dt && fdr) {
+    if (cons && dt && fdr && comp) {
       triggerSync('all');
-    } else if (cons && !dt && !fdr) {
+    } else if (comp && !cons && !dt && !fdr) {
+      triggerSync('complaint');
+    } else if (cons && !dt && !fdr && !comp) {
       triggerSync('consumer');
-    } else if (!cons && dt && !fdr) {
+    } else if (!cons && dt && !fdr && !comp) {
       triggerSync('dt');
-    } else if (!cons && !dt && fdr) {
+    } else if (!cons && !dt && fdr && !comp) {
       triggerSync('feeder');
-    } else if (!cons && !dt && !fdr) {
+    } else if (!cons && !dt && !fdr && !comp) {
       showToast('Please select at least one report category to sync.', 'warning');
     } else {
       triggerSync('all');
@@ -1418,7 +1851,7 @@ async function loadReportStatuses() {
     const json = await res.json();
     if (!json.success || !json.reports) return;
 
-    const { consumer, dt, feeder } = json.reports;
+    const { consumer, dt, feeder, complaint } = json.reports;
 
     // Render Lists
     if (consumer && consumer.items) {
@@ -1448,6 +1881,16 @@ async function loadReportStatuses() {
       if (badge) {
         badge.textContent = `${readyCount}/${feeder.items.length} Active`;
         badge.className = `report-status-badge ${readyCount === feeder.items.length ? 'badge-downloaded' : 'badge-missing'}`;
+      }
+    }
+
+    if (complaint && complaint.items) {
+      renderReportItemList('listComplaintReports', complaint.items);
+      const readyCount = complaint.items.filter(i => i.exists).length;
+      const badge = document.getElementById('badgeStatusComplaint');
+      if (badge) {
+        badge.textContent = `${readyCount}/${complaint.items.length} Active`;
+        badge.className = `report-status-badge ${readyCount === complaint.items.length ? 'badge-downloaded' : 'badge-missing'}`;
       }
     }
 
@@ -1604,4 +2047,654 @@ function exportTableToCSV(tableId, filename) {
   document.body.removeChild(link);
 }
 window.exportTableToCSV = exportTableToCSV;
+
+// ==========================================================================
+// TICKET CORRELATION MODULE (Cross-analyzing Silent Meters x O&M Complaints)
+// ==========================================================================
+
+let corrState = {
+  data: null,
+  isFetching: false
+};
+let corrDebounceTimer = null;
+
+async function loadTicketCorrelationData() {
+  if (corrState.isFetching) return;
+  corrState.isFetching = true;
+
+  const circle = document.getElementById('corrFilterCircle')?.value || 'ALL';
+  const division = document.getElementById('corrFilterDivision')?.value || 'ALL';
+  const comm_status = document.getElementById('corrFilterCommStatus')?.value || 'ALL_NON_COMM';
+  const ticket_filter = document.getElementById('corrFilterTicketStatus')?.value || 'ALL';
+  const search = document.getElementById('corrFilterSearch')?.value || '';
+
+  const params = new URLSearchParams({
+    circle,
+    division,
+    comm_status,
+    ticket_filter,
+    search
+  });
+
+  try {
+    const res = await fetch(`/api/analytics/ticket-correlation?${params.toString()}`);
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error || 'Failed to fetch correlation data');
+
+    corrState.data = json;
+    renderCorrKPIs(json.kpis);
+    renderCorrCharts(json);
+    renderCorrTables(json);
+    updateCorrCircleDropdown(json.circles);
+    updateCorrDivisionDropdown(json.divisions);
+
+  } catch (err) {
+    console.error('Correlation fetch error:', err);
+    showToast('Correlation Error: ' + err.message, 'error');
+  } finally {
+    corrState.isFetching = false;
+    if (window.lucide) lucide.createIcons();
+  }
+}
+window.loadTicketCorrelationData = loadTicketCorrelationData;
+
+function renderCorrKPIs(kpis) {
+  if (!kpis) return;
+  const totalSilent = Number(kpis.total_non_comm) || 0;
+  const ticketsRaised = Number(kpis.tickets_raised) || 0;
+  const noTicket = Number(kpis.no_ticket_raised) || 0;
+  const covPct = kpis.coverage_pct !== undefined ? kpis.coverage_pct : (totalSilent > 0 ? ((ticketsRaised / totalSilent) * 100).toFixed(2) : 0);
+  const gapPct = (100 - covPct).toFixed(2);
+  const pending = Number(kpis.pending_tickets) || 0;
+  const notifyDiscom = Number(kpis.notify_discom_tickets) || 0;
+  const attended = Number(kpis.attended_tickets) || 0;
+  const closed = Number(kpis.closed_tickets) || 0;
+
+  const elTotal = document.getElementById('corrKpiTotalSilent');
+  if (elTotal) elTotal.textContent = formatNum(totalSilent);
+
+  const elRaised = document.getElementById('corrKpiTicketsRaised');
+  if (elRaised) elRaised.textContent = formatNum(ticketsRaised);
+  const elCovPct = document.getElementById('corrKpiCoveragePct');
+  if (elCovPct) elCovPct.textContent = `${covPct}% Coverage`;
+  const elCovPill = document.getElementById('corrCoveragePill');
+  if (elCovPill) elCovPill.innerHTML = `<i data-lucide="check-circle-2"></i> ${covPct}% Logged`;
+
+  const elNoTicket = document.getElementById('corrKpiNoTicket');
+  if (elNoTicket) elNoTicket.textContent = formatNum(noTicket);
+  const elGapPct = document.getElementById('corrKpiGapPct');
+  if (elGapPct) elGapPct.textContent = `${gapPct}% Action Required`;
+
+  const elPending = document.getElementById('corrKpiPending');
+  if (elPending) elPending.textContent = formatNum(pending);
+  const elPendingPct = document.getElementById('corrKpiPendingPct');
+  if (elPendingPct) elPendingPct.textContent = ticketsRaised > 0 ? `${((pending / ticketsRaised) * 100).toFixed(1)}% of Raised` : 'Awaiting visit';
+
+  const elDiscom = document.getElementById('corrKpiNotifyDiscom');
+  if (elDiscom) elDiscom.textContent = formatNum(notifyDiscom);
+
+  const elAttended = document.getElementById('corrKpiAttended');
+  if (elAttended) elAttended.textContent = formatNum(attended);
+
+  const elClosed = document.getElementById('corrKpiClosed');
+  if (elClosed) elClosed.textContent = formatNum(closed);
+}
+
+function updateCorrCircleDropdown(circles) {
+  const select = document.getElementById('corrFilterCircle');
+  if (!select || select.options.length > 1) return;
+  const currentVal = select.value;
+  select.innerHTML = '<option value="ALL">All Circles (SBPDCL)</option>';
+  (circles || []).forEach(c => {
+    select.innerHTML += `<option value="${c.circle}">${c.circle} (${formatNum(c.total_non_comm)})</option>`;
+  });
+  select.value = currentVal;
+}
+
+function updateCorrDivisionDropdown(divisions) {
+  const divSelect = document.getElementById('corrFilterDivision');
+  if (!divSelect) return;
+  const circleVal = document.getElementById('corrFilterCircle')?.value || 'ALL';
+  const currentVal = divSelect.value;
+  divSelect.innerHTML = '<option value="ALL">All Divisions</option>';
+
+  let list = divisions || [];
+  if (circleVal !== 'ALL') {
+    list = list.filter(d => d.circle === circleVal);
+  }
+
+  const uniqueDivs = [...new Set(list.map(d => d.division).filter(Boolean))].sort();
+  uniqueDivs.forEach(d => {
+    divSelect.innerHTML += `<option value="${d}">${d}</option>`;
+  });
+
+  if (uniqueDivs.includes(currentVal)) {
+    divSelect.value = currentVal;
+  }
+}
+
+function renderCorrCharts(data) {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const textColor = isDark ? '#94a3b8' : '#475569';
+  const gridColor = isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.06)';
+
+  // Chart 1: Circle Ticket Coverage (Stacked Bar + Line)
+  const ctxCoverage = document.getElementById('chartCorrCircleCoverage')?.getContext('2d');
+  if (ctxCoverage) {
+    if (state.charts['corrCircleCoverage']) state.charts['corrCircleCoverage'].destroy();
+    const circles = data.circles || [];
+    const labels = circles.map(c => c.circle);
+    const raisedData = circles.map(c => c.tickets_raised);
+    const gapData = circles.map(c => c.no_ticket_raised);
+    const pctData = circles.map(c => c.coverage_pct);
+
+    state.charts['corrCircleCoverage'] = new Chart(ctxCoverage, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: 'Tickets Raised',
+            data: raisedData,
+            backgroundColor: 'rgba(16, 185, 129, 0.85)',
+            borderColor: '#10b981',
+            borderWidth: 1,
+            borderRadius: 4,
+            stack: 'stack1',
+            order: 2
+          },
+          {
+            label: 'No Ticket (Action Gap)',
+            data: gapData,
+            backgroundColor: 'rgba(244, 63, 94, 0.8)',
+            borderColor: '#f43f5e',
+            borderWidth: 1,
+            borderRadius: 4,
+            stack: 'stack1',
+            order: 3
+          },
+          {
+            type: 'line',
+            label: '% Ticket Coverage',
+            data: pctData,
+            borderColor: '#f59e0b',
+            backgroundColor: '#f59e0b',
+            borderWidth: 2.5,
+            pointBackgroundColor: '#f59e0b',
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            yAxisID: 'y1',
+            order: 1
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: {
+            position: 'top',
+            labels: { color: textColor, font: { family: 'Inter', size: 12, weight: 600 }, boxWidth: 14 }
+          },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => {
+                if (ctx.dataset.type === 'line') return `${ctx.dataset.label}: ${ctx.raw}%`;
+                return `${ctx.dataset.label}: ${formatNum(ctx.raw)}`;
+              }
+            }
+          },
+          datalabels: { display: false }
+        },
+        scales: {
+          x: {
+            stacked: true,
+            grid: { display: false },
+            ticks: { color: textColor, font: { family: 'Inter', weight: 600 } }
+          },
+          y: {
+            stacked: true,
+            grid: { color: gridColor },
+            ticks: {
+              color: textColor,
+              callback: (v) => formatK(v)
+            }
+          },
+          y1: {
+            position: 'right',
+            min: 0,
+            max: 100,
+            grid: { display: false },
+            ticks: {
+              color: '#f59e0b',
+              callback: (v) => `${v}%`
+            }
+          }
+        }
+      }
+    });
+  }
+
+  // Chart 2: Ticket Status Donut
+  const ctxDonut = document.getElementById('chartCorrStatusDonut')?.getContext('2d');
+  if (ctxDonut) {
+    if (state.charts['corrStatusDonut']) state.charts['corrStatusDonut'].destroy();
+    const kpi = data.kpis || {};
+    const pending = kpi.pending_tickets || 0;
+    const notifyDiscom = kpi.notify_discom_tickets || 0;
+    const attended = kpi.attended_tickets || 0;
+    const closed = kpi.closed_tickets || 0;
+    const mrRequired = kpi.mr_required_tickets || 0;
+
+    state.charts['corrStatusDonut'] = new Chart(ctxDonut, {
+      type: 'doughnut',
+      data: {
+        labels: ['Pending Field Action', 'Notify to Discom', 'Closed (Still Silent)', 'Attended', 'MR Required'],
+        datasets: [{
+          data: [pending, notifyDiscom, closed, attended, mrRequired],
+          backgroundColor: [
+            '#f59e0b',
+            '#3b82f6',
+            '#a855f7',
+            '#06b6d4',
+            '#f97316'
+          ],
+          borderColor: isDark ? '#1e293b' : '#ffffff',
+          borderWidth: 2,
+          hoverOffset: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'right',
+            labels: { color: textColor, font: { family: 'Inter', size: 12 }, boxWidth: 12, padding: 12 }
+          },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => {
+                const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                const pct = total > 0 ? ((ctx.raw / total) * 100).toFixed(1) : 0;
+                return `${ctx.label}: ${formatNum(ctx.raw)} (${pct}%)`;
+              }
+            }
+          },
+          datalabels: { display: false }
+        },
+        cutout: '62%'
+      }
+    });
+  }
+
+  // Chart 3: Non-Comm Duration vs Ticket Status (Grouped Bar)
+  const ctxAgingVsTicket = document.getElementById('chartCorrAgingVsTicket')?.getContext('2d');
+  if (ctxAgingVsTicket) {
+    if (state.charts['corrAgingVsTicket']) state.charts['corrAgingVsTicket'].destroy();
+    const commCats = data.commCategories || [];
+    const labels = commCats.map(c => c.comm_category);
+    const raisedData = commCats.map(c => c.tickets_raised);
+    const gapData = commCats.map(c => c.no_ticket_raised);
+
+    state.charts['corrAgingVsTicket'] = new Chart(ctxAgingVsTicket, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: 'Tickets Raised',
+            data: raisedData,
+            backgroundColor: 'rgba(16, 185, 129, 0.85)',
+            borderColor: '#10b981',
+            borderWidth: 1,
+            borderRadius: 4
+          },
+          {
+            label: 'No Ticket Raised (Gap)',
+            data: gapData,
+            backgroundColor: 'rgba(244, 63, 94, 0.8)',
+            borderColor: '#f43f5e',
+            borderWidth: 1,
+            borderRadius: 4
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'top',
+            labels: { color: textColor, font: { family: 'Inter', size: 12 } }
+          },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => `${ctx.dataset.label}: ${formatNum(ctx.raw)}`
+            }
+          },
+          datalabels: { display: false }
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: { color: textColor, font: { family: 'Inter', weight: 600 } }
+          },
+          y: {
+            grid: { color: gridColor },
+            ticks: {
+              color: textColor,
+              callback: (v) => formatK(v)
+            }
+          }
+        }
+      }
+    });
+  }
+
+  // Chart 4: Top Issue Categories / Remarks (Horizontal Bar)
+  const ctxRemarks = document.getElementById('chartCorrRemarksBar')?.getContext('2d');
+  if (ctxRemarks) {
+    if (state.charts['corrRemarksBar']) state.charts['corrRemarksBar'].destroy();
+    const remarks = (data.remarks || []).slice(0, 8);
+    const labels = remarks.map(r => r.main_remarks);
+    const counts = remarks.map(r => r.count);
+
+    state.charts['corrRemarksBar'] = new Chart(ctxRemarks, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Silent Meters Affected',
+          data: counts,
+          backgroundColor: 'rgba(59, 130, 246, 0.8)',
+          borderColor: '#3b82f6',
+          borderWidth: 1,
+          borderRadius: 4
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => `Meters: ${formatNum(ctx.raw)}`
+            }
+          },
+          datalabels: { display: false }
+        },
+        scales: {
+          x: {
+            grid: { color: gridColor },
+            ticks: {
+              color: textColor,
+              callback: (v) => formatK(v)
+            }
+          },
+          y: {
+            grid: { display: false },
+            ticks: {
+              color: textColor,
+              font: { family: 'Inter', size: 11, weight: 600 }
+            }
+          }
+        }
+      }
+    });
+  }
+}
+
+function renderCorrTables(data) {
+  // Table 1: Circle Table
+  const circleBody = document.getElementById('corrCircleTableBody');
+  if (circleBody) {
+    const circles = data.circles || [];
+    if (circles.length === 0) {
+      circleBody.innerHTML = '<tr><td colspan="11" class="text-center">No matching records</td></tr>';
+    } else {
+      let totNonComm = 0, totRaised = 0, totGap = 0, totPending = 0, totDiscom = 0, totAttended = 0, totClosed = 0, totMr = 0;
+      const rows = circles.map(c => {
+        totNonComm += c.total_non_comm;
+        totRaised += c.tickets_raised;
+        totGap += c.no_ticket_raised;
+        totPending += c.pending_tickets;
+        totDiscom += c.notify_discom_tickets;
+        totAttended += c.attended_tickets;
+        totClosed += c.closed_tickets;
+        totMr += c.mr_required_tickets;
+
+        const covBadge = c.coverage_pct >= 40 
+          ? `<span class="badge badge-success">${c.coverage_pct}%</span>`
+          : (c.coverage_pct >= 30 ? `<span class="badge badge-warning">${c.coverage_pct}%</span>` : `<span class="badge badge-crimson">${c.coverage_pct}%</span>`);
+
+        return `
+          <tr>
+            <td><strong>${c.circle}</strong></td>
+            <td>${formatNum(c.total_non_comm)}</td>
+            <td class="text-emerald font-semibold">${formatNum(c.tickets_raised)}</td>
+            <td class="text-crimson font-semibold">${formatNum(c.no_ticket_raised)}</td>
+            <td>${covBadge}</td>
+            <td class="text-amber">${formatNum(c.pending_tickets)}</td>
+            <td class="text-blue">${formatNum(c.notify_discom_tickets)}</td>
+            <td class="text-cyan">${formatNum(c.attended_tickets)}</td>
+            <td class="text-purple">${formatNum(c.closed_tickets)}</td>
+            <td>${formatNum(c.mr_required_tickets)}</td>
+            <td>
+              <button class="btn btn-sm btn-outline" style="padding: 3px 8px; font-size: 0.72rem;" onclick="drilldownCorrCircle('${c.circle}')">
+                <i data-lucide="eye"></i> View Meters
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      const overallCov = totNonComm > 0 ? ((totRaised / totNonComm) * 100).toFixed(2) : 0;
+      const totalRow = `
+        <tr class="table-total-row" style="font-weight: 700; background: rgba(255,255,255,0.06); border-top: 2px solid var(--border-color);">
+          <td><strong>TOTAL (${circles.length} Circles)</strong></td>
+          <td>${formatNum(totNonComm)}</td>
+          <td class="text-emerald font-bold">${formatNum(totRaised)}</td>
+          <td class="text-crimson font-bold">${formatNum(totGap)}</td>
+          <td><span class="badge ${overallCov >= 40 ? 'badge-success' : 'badge-warning'}">${overallCov}%</span></td>
+          <td class="text-amber font-bold">${formatNum(totPending)}</td>
+          <td class="text-blue font-bold">${formatNum(totDiscom)}</td>
+          <td class="text-cyan font-bold">${formatNum(totAttended)}</td>
+          <td class="text-purple font-bold">${formatNum(totClosed)}</td>
+          <td>${formatNum(totMr)}</td>
+          <td>-</td>
+        </tr>
+      `;
+      circleBody.innerHTML = rows + totalRow;
+    }
+  }
+
+  // Table 2: Division Table
+  const divBody = document.getElementById('corrDivisionTableBody');
+  if (divBody) {
+    const divs = data.divisions || [];
+    if (divs.length === 0) {
+      divBody.innerHTML = '<tr><td colspan="11" class="text-center">No matching records</td></tr>';
+    } else {
+      let totNonComm = 0, totRaised = 0, totGap = 0, totPending = 0, totDiscom = 0, totAttended = 0, totClosed = 0, totMr = 0;
+      const rows = divs.map(d => {
+        totNonComm += d.total_non_comm;
+        totRaised += d.tickets_raised;
+        totGap += d.no_ticket_raised;
+        totPending += d.pending_tickets;
+        totDiscom += d.notify_discom_tickets;
+        totAttended += d.attended_tickets;
+        totClosed += d.closed_tickets;
+        totMr += d.mr_required_tickets;
+
+        const covBadge = d.coverage_pct >= 40 
+          ? `<span class="badge badge-success">${d.coverage_pct}%</span>`
+          : (d.coverage_pct >= 30 ? `<span class="badge badge-warning">${d.coverage_pct}%</span>` : `<span class="badge badge-crimson">${d.coverage_pct}%</span>`);
+
+        return `
+          <tr>
+            <td>${d.circle}</td>
+            <td><strong>${d.division}</strong></td>
+            <td>${formatNum(d.total_non_comm)}</td>
+            <td class="text-emerald font-semibold">${formatNum(d.tickets_raised)}</td>
+            <td class="text-crimson font-semibold">${formatNum(d.no_ticket_raised)}</td>
+            <td>${covBadge}</td>
+            <td class="text-amber">${formatNum(d.pending_tickets)}</td>
+            <td class="text-blue">${formatNum(d.notify_discom_tickets)}</td>
+            <td class="text-cyan">${formatNum(d.attended_tickets)}</td>
+            <td class="text-purple">${formatNum(d.closed_tickets)}</td>
+            <td>${formatNum(d.mr_required_tickets)}</td>
+          </tr>
+        `;
+      }).join('');
+
+      const overallCov = totNonComm > 0 ? ((totRaised / totNonComm) * 100).toFixed(2) : 0;
+      const totalRow = `
+        <tr class="table-total-row" style="font-weight: 700; background: rgba(255,255,255,0.06); border-top: 2px solid var(--border-color);">
+          <td colspan="2"><strong>TOTAL (${divs.length} Divisions)</strong></td>
+          <td>${formatNum(totNonComm)}</td>
+          <td class="text-emerald font-bold">${formatNum(totRaised)}</td>
+          <td class="text-crimson font-bold">${formatNum(totGap)}</td>
+          <td><span class="badge ${overallCov >= 40 ? 'badge-success' : 'badge-warning'}">${overallCov}%</span></td>
+          <td class="text-amber font-bold">${formatNum(totPending)}</td>
+          <td class="text-blue font-bold">${formatNum(totDiscom)}</td>
+          <td class="text-cyan font-bold">${formatNum(totAttended)}</td>
+          <td class="text-purple font-bold">${formatNum(totClosed)}</td>
+          <td>${formatNum(totMr)}</td>
+        </tr>
+      `;
+      divBody.innerHTML = rows + totalRow;
+    }
+  }
+
+  // Table 3: Comm Category Matrix Table
+  const catBody = document.getElementById('corrCommCatTableBody');
+  if (catBody) {
+    const cats = data.commCategories || [];
+    catBody.innerHTML = cats.map(c => {
+      const covBadge = c.coverage_pct >= 40 
+        ? `<span class="badge badge-success">${c.coverage_pct}%</span>`
+        : `<span class="badge badge-warning">${c.coverage_pct}%</span>`;
+
+      return `
+        <tr>
+          <td><strong>${c.comm_category}</strong></td>
+          <td>${formatNum(c.total_meters)}</td>
+          <td class="text-emerald font-semibold">${formatNum(c.tickets_raised)}</td>
+          <td class="text-crimson font-semibold">${formatNum(c.no_ticket_raised)}</td>
+          <td>${covBadge}</td>
+          <td class="text-amber">${formatNum(c.pending_tickets)}</td>
+          <td class="text-blue">${formatNum(c.notify_discom_tickets)}</td>
+          <td class="text-purple">${formatNum(c.closed_tickets)}</td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  // Table 4: Remarks Table
+  const remarksBody = document.getElementById('corrRemarksTableBody');
+  if (remarksBody) {
+    const rems = data.remarks || [];
+    remarksBody.innerHTML = rems.map(r => `
+      <tr>
+        <td><strong>${r.main_remarks}</strong></td>
+        <td>${r.sub_remarks || '-'}</td>
+        <td class="font-bold">${formatNum(r.count)}</td>
+        <td class="text-amber">${formatNum(r.pending)}</td>
+        <td class="text-blue">${formatNum(r.notify_discom)}</td>
+        <td class="text-cyan">${formatNum(r.attended)}</td>
+        <td class="text-purple">${formatNum(r.closed)}</td>
+      </tr>
+    `).join('');
+  }
+}
+
+function setupCorrelationFilters() {
+  const circleSelect = document.getElementById('corrFilterCircle');
+  if (circleSelect) {
+    circleSelect.addEventListener('change', () => {
+      updateCorrDivisionDropdown(corrState.data?.divisions || []);
+      loadTicketCorrelationData();
+    });
+  }
+
+  const divSelect = document.getElementById('corrFilterDivision');
+  if (divSelect) {
+    divSelect.addEventListener('change', () => {
+      loadTicketCorrelationData();
+    });
+  }
+
+  const statusSelect = document.getElementById('corrFilterCommStatus');
+  if (statusSelect) {
+    statusSelect.addEventListener('change', () => {
+      loadTicketCorrelationData();
+    });
+  }
+
+  const ticketSelect = document.getElementById('corrFilterTicketStatus');
+  if (ticketSelect) {
+    ticketSelect.addEventListener('change', () => {
+      loadTicketCorrelationData();
+    });
+  }
+
+  const searchInput = document.getElementById('corrFilterSearch');
+  if (searchInput) {
+    searchInput.addEventListener('input', () => {
+      clearTimeout(corrDebounceTimer);
+      corrDebounceTimer = setTimeout(loadTicketCorrelationData, 350);
+    });
+  }
+
+  const resetBtn = document.getElementById('corrResetBtn');
+  if (resetBtn) {
+    resetBtn.addEventListener('click', () => {
+      if (circleSelect) circleSelect.value = 'ALL';
+      if (divSelect) divSelect.value = 'ALL';
+      if (statusSelect) statusSelect.value = 'ALL_NON_COMM';
+      if (ticketSelect) ticketSelect.value = 'ALL';
+      if (searchInput) searchInput.value = '';
+      loadTicketCorrelationData();
+    });
+  }
+}
+
+function applyCorrPreset(preset) {
+  const commSelect = document.getElementById('corrFilterCommStatus');
+  const ticketSelect = document.getElementById('corrFilterTicketStatus');
+
+  if (preset === 'all') {
+    if (commSelect) commSelect.value = 'ALL_NON_COMM';
+    if (ticketSelect) ticketSelect.value = 'ALL';
+  } else if (preset === 'gap') {
+    if (commSelect) commSelect.value = 'ALL_NON_COMM';
+    if (ticketSelect) ticketSelect.value = 'NOT_RAISED';
+  }
+  loadTicketCorrelationData();
+}
+window.applyCorrPreset = applyCorrPreset;
+
+function drilldownCorrCircle(circleName) {
+  // 1. Switch to Consumer Explorer tab
+  const tabs = document.querySelectorAll('.nav-tab');
+  tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === 'tab-meters'));
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.toggle('active', p.id === 'tab-meters'));
+
+  // 2. Set filters
+  const circleSelect = document.getElementById('filterCircle');
+  if (circleSelect) circleSelect.value = circleName;
+  state.filters.circle = circleName;
+
+  const statusSelect = document.getElementById('filterStatus');
+  if (statusSelect) statusSelect.value = 'ALL_NON_COMM';
+  state.filters.status = 'ALL_NON_COMM';
+
+  state.metersPage = 1;
+  onFiltersChanged();
+}
+window.drilldownCorrCircle = drilldownCorrCircle;
 

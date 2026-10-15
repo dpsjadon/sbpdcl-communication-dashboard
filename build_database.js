@@ -61,6 +61,9 @@ async function buildDatabase(options = {}) {
       if (target !== 'feeder' && target !== 'feeder_master' && target !== 'feeder_non_comm' && target !== 'feeder_never_comm') {
         await runQuery(`CREATE TABLE feeder_meter_analytics AS SELECT * FROM old_db.feeder_meter_analytics`).catch(() => {});
       }
+      if (target !== 'complaint' && target !== 'onm') {
+        await runQuery(`CREATE TABLE complaint_analytics AS SELECT * FROM old_db.complaint_analytics`).catch(() => {});
+      }
       await runQuery(`DETACH old_db`).catch(() => {});
     } catch (attachErr) {
       console.warn('Notice attaching previous db for table reuse:', attachErr.message);
@@ -506,6 +509,135 @@ async function buildDatabase(options = {}) {
         console.log('feeder_meter_analytics created successfully.');
       } else {
         console.log('Skipping Feeder rebuild (CSVs not present).');
+      }
+    }
+
+    // -------------------------------------------------------------
+    // 4. ONM COMPLAINT & TICKET ANALYTICS TABLE
+    // -------------------------------------------------------------
+    if (target === 'all' || target === 'complaint' || target === 'onm') {
+      console.log('\n--- Building OnM Complaint Analytics ---');
+      const complaintCsv = findLatestCsv('Complaint');
+      if (complaintCsv) {
+        console.log(`Using complaint file: ${complaintCsv}`);
+        await runQuery('DROP TABLE IF EXISTS complaint_analytics');
+        await runQuery(`
+          CREATE TABLE complaint_analytics AS
+          SELECT 
+            TRIM("TicketNo") as ticket_no,
+            TRIM("Discom") as discom,
+            UPPER(TRIM("Circle")) as circle,
+            UPPER(TRIM("Division")) as division,
+            UPPER(TRIM("Subdivision")) as subdivision,
+            UPPER(TRIM("Section")) as section,
+            TRIM("Sub Station") as sub_station,
+            TRIM("Feeder") as feeder,
+            TRIM("DTR") as dtr,
+            TRIM("Consumer ID") as consumer_id,
+            TRIM("Consumer Name") as consumer_name,
+            TRIM("Consumer Address") as consumer_address,
+            TRIM("Mobile Number") as mobile_no,
+            TRIM("Ticket Status") as ticket_status,
+            CASE 
+              WHEN TRIM("Ticket Status") = 'Closed' THEN 'Closed'
+              WHEN TRIM("Ticket Status") IN ('Pending', 'Notify to Discom', 'MR Required', 'Notify to SI') THEN 'Open/Pending'
+              WHEN TRIM("Ticket Status") = 'Attended' THEN 'In Progress'
+              ELSE TRIM("Ticket Status")
+            END as status_group,
+            CASE WHEN TRIM("Ticket Status") = 'Closed' THEN 1 ELSE 0 END as is_closed,
+            CASE WHEN TRIM("Ticket Status") != 'Closed' THEN 1 ELSE 0 END as is_open,
+            
+            CASE 
+              WHEN "Ticket Creation Date" IS NOT NULL AND "Ticket Creation Date" != '' 
+              THEN strptime("Ticket Creation Date", '%d-%m-%Y %H:%M:%S')
+              ELSE NULL
+            END as created_at,
+            
+            CASE 
+              WHEN "Ticket Creation Date" IS NOT NULL AND "Ticket Creation Date" != '' 
+              THEN strftime(strptime("Ticket Creation Date", '%d-%m-%Y %H:%M:%S'), '%Y-%m-%d')
+              ELSE 'Unknown'
+            END as create_date,
+
+            CASE 
+              WHEN "Ticket Resolve Date" IS NOT NULL AND "Ticket Resolve Date" != '' 
+              THEN strptime("Ticket Resolve Date", '%d-%m-%Y %H:%M:%S')
+              ELSE NULL
+            END as resolved_at,
+
+            CASE 
+              WHEN "Resolution Time(Days)" IS NOT NULL AND "Resolution Time(Days)" != '' AND TRY_CAST("Resolution Time(Days)" AS INT) IS NOT NULL
+                THEN TRY_CAST("Resolution Time(Days)" AS INT)
+              WHEN "Ticket Resolve Date" IS NOT NULL AND "Ticket Resolve Date" != '' AND "Ticket Creation Date" IS NOT NULL AND "Ticket Creation Date" != ''
+                THEN GREATEST(0, date_diff('day', strptime("Ticket Creation Date", '%d-%m-%Y %H:%M:%S'), strptime("Ticket Resolve Date", '%d-%m-%Y %H:%M:%S')))
+              WHEN "Ticket Creation Date" IS NOT NULL AND "Ticket Creation Date" != ''
+                THEN GREATEST(0, date_diff('day', strptime("Ticket Creation Date", '%d-%m-%Y %H:%M:%S'), CURRENT_DATE))
+              ELSE 0
+            END as aging_days,
+
+            CASE 
+              WHEN (
+                CASE 
+                  WHEN "Resolution Time(Days)" IS NOT NULL AND "Resolution Time(Days)" != '' AND TRY_CAST("Resolution Time(Days)" AS INT) IS NOT NULL
+                    THEN TRY_CAST("Resolution Time(Days)" AS INT)
+                  WHEN "Ticket Resolve Date" IS NOT NULL AND "Ticket Resolve Date" != '' AND "Ticket Creation Date" IS NOT NULL AND "Ticket Creation Date" != ''
+                    THEN GREATEST(0, date_diff('day', strptime("Ticket Creation Date", '%d-%m-%Y %H:%M:%S'), strptime("Ticket Resolve Date", '%d-%m-%Y %H:%M:%S')))
+                  WHEN "Ticket Creation Date" IS NOT NULL AND "Ticket Creation Date" != ''
+                    THEN GREATEST(0, date_diff('day', strptime("Ticket Creation Date", '%d-%m-%Y %H:%M:%S'), CURRENT_DATE))
+                  ELSE 0
+                END
+              ) <= 2 THEN '<= 2 Days'
+              WHEN (
+                CASE 
+                  WHEN "Resolution Time(Days)" IS NOT NULL AND "Resolution Time(Days)" != '' AND TRY_CAST("Resolution Time(Days)" AS INT) IS NOT NULL
+                    THEN TRY_CAST("Resolution Time(Days)" AS INT)
+                  WHEN "Ticket Resolve Date" IS NOT NULL AND "Ticket Resolve Date" != '' AND "Ticket Creation Date" IS NOT NULL AND "Ticket Creation Date" != ''
+                    THEN GREATEST(0, date_diff('day', strptime("Ticket Creation Date", '%d-%m-%Y %H:%M:%S'), strptime("Ticket Resolve Date", '%d-%m-%Y %H:%M:%S')))
+                  WHEN "Ticket Creation Date" IS NOT NULL AND "Ticket Creation Date" != ''
+                    THEN GREATEST(0, date_diff('day', strptime("Ticket Creation Date", '%d-%m-%Y %H:%M:%S'), CURRENT_DATE))
+                  ELSE 0
+                END
+              ) <= 7 THEN '3 - 7 Days'
+              WHEN (
+                CASE 
+                  WHEN "Resolution Time(Days)" IS NOT NULL AND "Resolution Time(Days)" != '' AND TRY_CAST("Resolution Time(Days)" AS INT) IS NOT NULL
+                    THEN TRY_CAST("Resolution Time(Days)" AS INT)
+                  WHEN "Ticket Resolve Date" IS NOT NULL AND "Ticket Resolve Date" != '' AND "Ticket Creation Date" IS NOT NULL AND "Ticket Creation Date" != ''
+                    THEN GREATEST(0, date_diff('day', strptime("Ticket Creation Date", '%d-%m-%Y %H:%M:%S'), strptime("Ticket Resolve Date", '%d-%m-%Y %H:%M:%S')))
+                  WHEN "Ticket Creation Date" IS NOT NULL AND "Ticket Creation Date" != ''
+                    THEN GREATEST(0, date_diff('day', strptime("Ticket Creation Date", '%d-%m-%Y %H:%M:%S'), CURRENT_DATE))
+                  ELSE 0
+                END
+              ) <= 15 THEN '8 - 15 Days'
+              WHEN (
+                CASE 
+                  WHEN "Resolution Time(Days)" IS NOT NULL AND "Resolution Time(Days)" != '' AND TRY_CAST("Resolution Time(Days)" AS INT) IS NOT NULL
+                    THEN TRY_CAST("Resolution Time(Days)" AS INT)
+                  WHEN "Ticket Resolve Date" IS NOT NULL AND "Ticket Resolve Date" != '' AND "Ticket Creation Date" IS NOT NULL AND "Ticket Creation Date" != ''
+                    THEN GREATEST(0, date_diff('day', strptime("Ticket Creation Date", '%d-%m-%Y %H:%M:%S'), strptime("Ticket Resolve Date", '%d-%m-%Y %H:%M:%S')))
+                  WHEN "Ticket Creation Date" IS NOT NULL AND "Ticket Creation Date" != ''
+                    THEN GREATEST(0, date_diff('day', strptime("Ticket Creation Date", '%d-%m-%Y %H:%M:%S'), CURRENT_DATE))
+                  ELSE 0
+                END
+              ) <= 30 THEN '16 - 30 Days'
+              ELSE '> 30 Days'
+            END as aging_bucket,
+
+            TRIM("MSN") as msn,
+            COALESCE(NULLIF(TRIM("Complaint Type"), ''), 'General') as complaint_type,
+            COALESCE(NULLIF(TRIM("Complaint Description"), ''), 'Not Specified') as complaint_description,
+            COALESCE(NULLIF(TRIM("Detail Remark"), ''), 'Not Specified') as detail_remark,
+            COALESCE(NULLIF(TRIM("Priority"), ''), 'Normal') as priority,
+            COALESCE(NULLIF(TRIM("Onm Main Remarks"), ''), 'Pending Field Action') as main_remarks,
+            COALESCE(NULLIF(TRIM("Onm Sub Remarks"), ''), 'Pending Field Action') as sub_remarks,
+            COALESCE(NULLIF(TRIM("Agency Name"), ''), 'IntelliSmart') as agency,
+            COALESCE(NULLIF(TRIM("Technician Name"), ''), 'Unassigned') as technician,
+            COALESCE(NULLIF(TRIM("Source"), ''), 'MDMS') as source
+          FROM read_csv_auto('${complaintCsv}', all_varchar=true)
+        `);
+        console.log('complaint_analytics created successfully.');
+      } else {
+        console.log('Skipping Complaint rebuild (CSV not present).');
       }
     }
 
