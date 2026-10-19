@@ -10,7 +10,13 @@ const PORT = process.env.PORT || 8098;
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use((req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  next();
+});
+app.use(express.static(path.join(__dirname, 'public'), { etag: false, maxAge: 0 }));
 
 const dataDir = path.join(__dirname, 'data');
 const downloadDir = path.join(__dirname, 'downloads');
@@ -36,13 +42,15 @@ function ensureDatabase() {
   const targetPath = getActiveDbPath();
   if (!fs.existsSync(targetPath)) {
     const gzPath = path.join(dataDir, 'sbpdcl_analytics.duckdb.gz');
-    const p1 = path.join(dataDir, 'sbpdcl_analytics.duckdb.gz.001');
-    const p2 = path.join(dataDir, 'sbpdcl_analytics.duckdb.gz.002');
     const zlib = require('zlib');
+    const gzFiles = fs.readdirSync(dataDir)
+      .filter(f => f.startsWith('sbpdcl_analytics.duckdb.gz.'))
+      .sort();
 
-    if (fs.existsSync(p1) && fs.existsSync(p2)) {
-      console.log(`[Cloud Init] Decompressing multipart seed database (.001 + .002) to ${dbPath}...`);
-      const combined = Buffer.concat([fs.readFileSync(p1), fs.readFileSync(p2)]);
+    if (gzFiles.length > 0) {
+      console.log(`[Cloud Init] Decompressing multipart seed database (${gzFiles.length} parts) to ${dbPath}...`);
+      const buffers = gzFiles.map(f => fs.readFileSync(path.join(dataDir, f)));
+      const combined = Buffer.concat(buffers);
       const decompressed = zlib.gunzipSync(combined);
       fs.writeFileSync(dbPath, decompressed);
       console.log(`[Cloud Init] Database decompressed successfully (${(decompressed.length / 1024 / 1024).toFixed(2)} MB).`);
@@ -61,13 +69,35 @@ let db = null;
 let con = null;
 let currentConnectedPath = null;
 let isDbLocked = false;
-let idleTimer = null;
+
+// High-speed In-Memory Query Cache with 3-minute TTL
+const queryCache = new Map();
+const CACHE_TTL_MS = 3 * 60 * 1000;
+
+function getCached(key) {
+  const item = queryCache.get(key);
+  if (!item) return null;
+  if (Date.now() > item.expiry) {
+    queryCache.delete(key);
+    return null;
+  }
+  return item.data;
+}
+
+function setCache(key, data) {
+  if (queryCache.size > 300) {
+    const oldestKey = queryCache.keys().next().value;
+    queryCache.delete(oldestKey);
+  }
+  queryCache.set(key, { data, expiry: Date.now() + CACHE_TTL_MS });
+}
+
+function clearCache() {
+  queryCache.clear();
+}
 
 function touchDbActivity() {
-  clearTimeout(idleTimer);
-  idleTimer = setTimeout(() => {
-    closeDbConnection();
-  }, 30000);
+  // Keep connection warm permanently across user sessions
 }
 
 function getDbConnection() {
@@ -91,35 +121,9 @@ function getDbConnection() {
       con = db.connect();
       currentConnectedPath = targetPath;
       
-      // Initialize in-memory latest complaints table if complaint_analytics exists
-      con.run(`
-        CREATE TEMP TABLE IF NOT EXISTS temp_latest_complaint AS
-        WITH ranked AS (
-          SELECT 
-            msn,
-            consumer_id,
-            ticket_no,
-            ticket_status,
-            status_group,
-            main_remarks,
-            sub_remarks,
-            detail_remark,
-            aging_days,
-            aging_bucket,
-            create_date,
-            created_at,
-            resolved_at,
-            consumer_total_tickets,
-            consumer_open_tickets,
-            is_repeat_consumer,
-            repeat_bucket,
-            open_ticket_bucket,
-            ROW_NUMBER() OVER (PARTITION BY msn ORDER BY created_at DESC NULLS LAST, ticket_no DESC) as rn
-          FROM complaint_analytics
-          WHERE msn IS NOT NULL AND msn != ''
-        )
-        SELECT * FROM ranked WHERE rn = 1;
-      `, () => {
+      // Optimize DuckDB multi-threaded execution and buffer memory
+      con.run("PRAGMA threads=4; PRAGMA memory_limit='2GB';", (pragmaErr) => {
+        if (pragmaErr) console.warn('DuckDB pragma warning:', pragmaErr.message);
         resolve(con);
       });
     });
@@ -127,8 +131,8 @@ function getDbConnection() {
 }
 
 function closeDbConnection() {
-  clearTimeout(idleTimer);
   currentConnectedPath = null;
+  clearCache();
   if (con) {
     try { con.close(); } catch (e) {}
     con = null;
@@ -275,19 +279,19 @@ function buildWhereClause(query) {
     const ticketStatusFilter = query.ticket_status_filter || query.ticket_filter;
     if (ticketStatusFilter && ticketStatusFilter !== 'ALL') {
       if (ticketStatusFilter === 'RAISED') {
-        conditions.push('c.ticket_no IS NOT NULL');
+        conditions.push("ticket_raised = 'YES'");
       } else if (ticketStatusFilter === 'NOT_RAISED' || ticketStatusFilter === 'NO_TICKET') {
-        conditions.push('c.ticket_no IS NULL');
+        conditions.push("ticket_raised = 'NO'");
       } else if (ticketStatusFilter === 'PENDING') {
-        conditions.push("c.ticket_status = 'Pending'");
+        conditions.push("ticket_status = 'Pending'");
       } else if (ticketStatusFilter === 'NOTIFY_DISCOM') {
-        conditions.push("c.ticket_status = 'Notify to Discom'");
+        conditions.push("ticket_status = 'Notify to Discom'");
       } else if (ticketStatusFilter === 'ATTENDED') {
-        conditions.push("c.ticket_status = 'Attended'");
+        conditions.push("ticket_status = 'Attended'");
       } else if (ticketStatusFilter === 'CLOSED') {
-        conditions.push("c.ticket_status = 'Closed'");
+        conditions.push("ticket_status = 'Closed'");
       } else if (ticketStatusFilter === 'MR_REQUIRED') {
-        conditions.push("c.ticket_status = 'MR Required'");
+        conditions.push("ticket_status = 'MR Required'");
       }
     }
   }
@@ -587,6 +591,10 @@ app.get('/api/filters', async (req, res) => {
 // 3. Dynamic Slicing & Filtered Analytics API
 app.get('/api/analytics/filtered', async (req, res) => {
   try {
+    const cacheKey = req.originalUrl;
+    const cached = getCached(cacheKey);
+    if (cached) return res.json(cached);
+
     const category = req.query.category || 'consumer';
     const table = getTableName(category);
     const whereClause = buildWhereClause(req.query);
@@ -783,7 +791,7 @@ app.get('/api/analytics/filtered', async (req, res) => {
       const aging = agingRaw.sort((a, b) => (agingOrderMap[a.bucket] || 99) - (agingOrderMap[b.bucket] || 99));
       const kpi = kpiRows[0] || {};
 
-      return res.json({
+      const responseData = {
         success: true,
         category,
         isFiltered: true,
@@ -806,7 +814,9 @@ app.get('/api/analytics/filtered', async (req, res) => {
         aging,
         aging_buckets: aging,
         statuses: statusRows
-      });
+      };
+      setCache(cacheKey, responseData);
+      return res.json(responseData);
     }
 
     let kpiSql = '';
@@ -1080,7 +1090,7 @@ app.get('/api/analytics/filtered', async (req, res) => {
       non_comm_percentage: 0
     };
 
-    res.json({
+    const payload = {
       success: true,
       category,
       isFiltered: true,
@@ -1099,7 +1109,9 @@ app.get('/api/analytics/filtered', async (req, res) => {
       communication: technology,
       aging,
       aging_buckets: aging
-    });
+    };
+    setCache(cacheKey, payload);
+    res.json(payload);
 
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -1109,6 +1121,10 @@ app.get('/api/analytics/filtered', async (req, res) => {
 // 3B. Dedicated Non-Communication & Ticket Correlation Analytics API
 app.get('/api/analytics/ticket-correlation', async (req, res) => {
   try {
+    const cacheKey = req.originalUrl;
+    const cached = getCached(cacheKey);
+    if (cached) return res.json(cached);
+
     const {
       circle = 'ALL',
       division = 'ALL',
@@ -1121,57 +1137,57 @@ app.get('/api/analytics/ticket-correlation', async (req, res) => {
     const conditions = ['1=1'];
     // Filter communication status (default: All Non-Communicating)
     if (comm_status === 'ALL_NON_COMM') {
-      conditions.push('s.is_non_comm = 1');
+      conditions.push('is_non_comm = 1');
     } else if (comm_status === '3-7D') {
-      conditions.push("s.comm_category = 'Non-Comm (4-7D)'");
+      conditions.push("comm_category = 'Non-Comm (4-7D)'");
     } else if (comm_status === '>7D') {
-      conditions.push("s.comm_category = 'Non-Comm (>7D)'");
+      conditions.push("comm_category = 'Non-Comm (>7D)'");
     } else if (comm_status === 'NEVER') {
-      conditions.push('s.is_never_comm = 1');
+      conditions.push('is_never_comm = 1');
     } else if (comm_status === 'COMM_LTE_3D') {
-      conditions.push('s.is_non_comm = 0');
+      conditions.push('is_non_comm = 0');
     }
 
     if (circle && circle !== 'ALL') {
-      conditions.push(`s.circle = '${circle.toUpperCase().replace(/'/g, "''")}'`);
+      conditions.push(`circle = '${circle.toUpperCase().replace(/'/g, "''")}'`);
     }
     if (division && division !== 'ALL') {
-      conditions.push(`s.division = '${division.toUpperCase().replace(/'/g, "''")}'`);
+      conditions.push(`division = '${division.toUpperCase().replace(/'/g, "''")}'`);
     }
     if (section && section !== 'ALL') {
-      conditions.push(`s.section = '${section.toUpperCase().replace(/'/g, "''")}'`);
+      conditions.push(`section = '${section.toUpperCase().replace(/'/g, "''")}'`);
     }
 
     if (ticket_filter && ticket_filter !== 'ALL') {
       if (ticket_filter === 'RAISED') {
-        conditions.push('c.ticket_no IS NOT NULL');
+        conditions.push('has_ticket = 1');
       } else if (ticket_filter === 'NOT_RAISED' || ticket_filter === 'NO_TICKET') {
-        conditions.push('c.ticket_no IS NULL');
+        conditions.push('has_ticket = 0');
       } else if (ticket_filter === 'PENDING') {
-        conditions.push("c.ticket_status = 'Pending'");
+        conditions.push("ticket_status = 'Pending'");
       } else if (ticket_filter === 'NOTIFY_DISCOM') {
-        conditions.push("c.ticket_status = 'Notify to Discom'");
+        conditions.push("ticket_status = 'Notify to Discom'");
       } else if (ticket_filter === 'ATTENDED') {
-        conditions.push("c.ticket_status = 'Attended'");
+        conditions.push("ticket_status = 'Attended'");
       } else if (ticket_filter === 'CLOSED') {
-        conditions.push("c.ticket_status = 'Closed'");
+        conditions.push("ticket_status = 'Closed'");
       } else if (ticket_filter === 'MR_REQUIRED') {
-        conditions.push("c.ticket_status = 'MR Required'");
+        conditions.push("ticket_status = 'MR Required'");
       }
     }
 
     if (search) {
       const s = search.trim().toUpperCase().replace(/'/g, "''");
       conditions.push(`(
-        s.msn LIKE '%${s}%' OR 
-        s.consumer_id LIKE '%${s}%' OR 
-        s.name LIKE '%${s}%' OR 
-        s.circle LIKE '%${s}%' OR 
-        s.division LIKE '%${s}%' OR 
-        s.section LIKE '%${s}%' OR 
-        c.ticket_no LIKE '%${s}%' OR 
-        c.main_remarks LIKE '%${s}%' OR 
-        c.sub_remarks LIKE '%${s}%'
+        msn LIKE '%${s}%' OR 
+        consumer_id LIKE '%${s}%' OR 
+        name LIKE '%${s}%' OR 
+        circle LIKE '%${s}%' OR 
+        division LIKE '%${s}%' OR 
+        section LIKE '%${s}%' OR 
+        ticket_no LIKE '%${s}%' OR 
+        main_remarks LIKE '%${s}%' OR 
+        sub_remarks LIKE '%${s}%'
       )`);
     }
 
@@ -1182,84 +1198,80 @@ app.get('/api/analytics/ticket-correlation', async (req, res) => {
       queryDuck(`
         SELECT 
           count(*) as total_non_comm,
-          count(c.ticket_no) as tickets_raised,
-          count(*) - count(c.ticket_no) as no_ticket_raised,
-          ROUND(count(c.ticket_no) * 100.0 / NULLIF(count(*), 0), 2) as coverage_pct,
-          count(*) FILTER (WHERE c.ticket_status = 'Pending') as pending_tickets,
-          count(*) FILTER (WHERE c.ticket_status = 'Notify to Discom') as notify_discom_tickets,
-          count(*) FILTER (WHERE c.ticket_status = 'Attended') as attended_tickets,
-          count(*) FILTER (WHERE c.ticket_status = 'Closed') as closed_tickets,
-          count(*) FILTER (WHERE c.ticket_status = 'MR Required') as mr_required_tickets,
-          count(*) FILTER (WHERE c.is_repeat_consumer = 1) as repeat_consumers,
-          ROUND(count(*) FILTER (WHERE c.is_repeat_consumer = 1) * 100.0 / NULLIF(count(c.ticket_no), 0), 2) as repeat_rate_pct,
-          count(*) FILTER (WHERE c.consumer_open_tickets > 1) as multiple_open_tickets,
-          count(*) FILTER (WHERE c.consumer_open_tickets = 1) as single_open_tickets,
-          count(*) FILTER (WHERE c.consumer_open_tickets = 0) as closed_silent_tickets,
-          count(*) FILTER (WHERE c.consumer_total_tickets >= 3) as chronic_consumers_3plus
-        FROM smart_meter_analytics s
-        LEFT JOIN temp_latest_complaint c ON s.msn = c.msn
+          count(ticket_no) as tickets_raised,
+          count(*) - count(ticket_no) as no_ticket_raised,
+          ROUND(count(ticket_no) * 100.0 / NULLIF(count(*), 0), 2) as coverage_pct,
+          count(*) FILTER (WHERE ticket_status = 'Pending') as pending_tickets,
+          count(*) FILTER (WHERE ticket_status = 'Notify to Discom') as notify_discom_tickets,
+          count(*) FILTER (WHERE ticket_status = 'Attended') as attended_tickets,
+          count(*) FILTER (WHERE ticket_status = 'Closed') as closed_tickets,
+          count(*) FILTER (WHERE ticket_status = 'MR Required') as mr_required_tickets,
+          count(*) FILTER (WHERE is_repeat_consumer = 1) as repeat_consumers,
+          ROUND(count(*) FILTER (WHERE is_repeat_consumer = 1) * 100.0 / NULLIF(count(ticket_no), 0), 2) as repeat_rate_pct,
+          count(*) FILTER (WHERE consumer_open_tickets > 1) as multiple_open_tickets,
+          count(*) FILTER (WHERE consumer_open_tickets = 1) as single_open_tickets,
+          count(*) FILTER (WHERE consumer_open_tickets = 0) as closed_silent_tickets,
+          count(*) FILTER (WHERE consumer_total_tickets >= 3) as chronic_consumers_3plus
+        FROM non_comm_ticket_analytics
         WHERE ${where}
       `),
 
       // 2. Circle Breakdown
       queryDuck(`
         SELECT 
-          s.circle,
+          circle,
           count(*) as total_non_comm,
-          count(c.ticket_no) as tickets_raised,
-          count(*) - count(c.ticket_no) as no_ticket_raised,
-          ROUND(count(c.ticket_no) * 100.0 / NULLIF(count(*), 0), 2) as coverage_pct,
-          count(*) FILTER (WHERE c.ticket_status = 'Pending') as pending_tickets,
-          count(*) FILTER (WHERE c.ticket_status = 'Notify to Discom') as notify_discom_tickets,
-          count(*) FILTER (WHERE c.ticket_status = 'Attended') as attended_tickets,
-          count(*) FILTER (WHERE c.ticket_status = 'Closed') as closed_tickets,
-          count(*) FILTER (WHERE c.ticket_status = 'MR Required') as mr_required_tickets,
-          count(*) FILTER (WHERE c.is_repeat_consumer = 1) as repeat_consumers
-        FROM smart_meter_analytics s
-        LEFT JOIN temp_latest_complaint c ON s.msn = c.msn
-        WHERE ${where} AND s.circle IS NOT NULL AND s.circle != ''
-        GROUP BY s.circle
+          count(ticket_no) as tickets_raised,
+          count(*) - count(ticket_no) as no_ticket_raised,
+          ROUND(count(ticket_no) * 100.0 / NULLIF(count(*), 0), 2) as coverage_pct,
+          count(*) FILTER (WHERE ticket_status = 'Pending') as pending_tickets,
+          count(*) FILTER (WHERE ticket_status = 'Notify to Discom') as notify_discom_tickets,
+          count(*) FILTER (WHERE ticket_status = 'Attended') as attended_tickets,
+          count(*) FILTER (WHERE ticket_status = 'Closed') as closed_tickets,
+          count(*) FILTER (WHERE ticket_status = 'MR Required') as mr_required_tickets,
+          count(*) FILTER (WHERE is_repeat_consumer = 1) as repeat_consumers
+        FROM non_comm_ticket_analytics
+        WHERE ${where} AND circle IS NOT NULL AND circle != ''
+        GROUP BY circle
         ORDER BY total_non_comm DESC
       `),
 
       // 3. Division Breakdown
       queryDuck(`
         SELECT 
-          s.circle, s.division,
+          circle, division,
           count(*) as total_non_comm,
-          count(c.ticket_no) as tickets_raised,
-          count(*) - count(c.ticket_no) as no_ticket_raised,
-          ROUND(count(c.ticket_no) * 100.0 / NULLIF(count(*), 0), 2) as coverage_pct,
-          count(*) FILTER (WHERE c.ticket_status = 'Pending') as pending_tickets,
-          count(*) FILTER (WHERE c.ticket_status = 'Notify to Discom') as notify_discom_tickets,
-          count(*) FILTER (WHERE c.ticket_status = 'Attended') as attended_tickets,
-          count(*) FILTER (WHERE c.ticket_status = 'Closed') as closed_tickets,
-          count(*) FILTER (WHERE c.ticket_status = 'MR Required') as mr_required_tickets,
-          count(*) FILTER (WHERE c.is_repeat_consumer = 1) as repeat_consumers
-        FROM smart_meter_analytics s
-        LEFT JOIN temp_latest_complaint c ON s.msn = c.msn
-        WHERE ${where} AND s.division IS NOT NULL AND s.division != ''
-        GROUP BY s.circle, s.division
+          count(ticket_no) as tickets_raised,
+          count(*) - count(ticket_no) as no_ticket_raised,
+          ROUND(count(ticket_no) * 100.0 / NULLIF(count(*), 0), 2) as coverage_pct,
+          count(*) FILTER (WHERE ticket_status = 'Pending') as pending_tickets,
+          count(*) FILTER (WHERE ticket_status = 'Notify to Discom') as notify_discom_tickets,
+          count(*) FILTER (WHERE ticket_status = 'Attended') as attended_tickets,
+          count(*) FILTER (WHERE ticket_status = 'Closed') as closed_tickets,
+          count(*) FILTER (WHERE ticket_status = 'MR Required') as mr_required_tickets,
+          count(*) FILTER (WHERE is_repeat_consumer = 1) as repeat_consumers
+        FROM non_comm_ticket_analytics
+        WHERE ${where} AND division IS NOT NULL AND division != ''
+        GROUP BY circle, division
         ORDER BY total_non_comm DESC
       `),
 
       // 4. Section Drilldown
       queryDuck(`
         SELECT 
-          s.circle, s.division, s.section,
+          circle, division, section,
           count(*) as total_non_comm,
-          count(c.ticket_no) as tickets_raised,
-          count(*) - count(c.ticket_no) as no_ticket_raised,
-          ROUND(count(c.ticket_no) * 100.0 / NULLIF(count(*), 0), 2) as coverage_pct,
-          count(*) FILTER (WHERE c.ticket_status = 'Pending') as pending_tickets,
-          count(*) FILTER (WHERE c.ticket_status = 'Notify to Discom') as notify_discom_tickets,
-          count(*) FILTER (WHERE c.ticket_status = 'Attended') as attended_tickets,
-          count(*) FILTER (WHERE c.ticket_status = 'Closed') as closed_tickets,
-          count(*) FILTER (WHERE c.ticket_status = 'MR Required') as mr_required_tickets
-        FROM smart_meter_analytics s
-        LEFT JOIN temp_latest_complaint c ON s.msn = c.msn
-        WHERE ${where} AND s.section IS NOT NULL AND s.section != ''
-        GROUP BY s.circle, s.division, s.section
+          count(ticket_no) as tickets_raised,
+          count(*) - count(ticket_no) as no_ticket_raised,
+          ROUND(count(ticket_no) * 100.0 / NULLIF(count(*), 0), 2) as coverage_pct,
+          count(*) FILTER (WHERE ticket_status = 'Pending') as pending_tickets,
+          count(*) FILTER (WHERE ticket_status = 'Notify to Discom') as notify_discom_tickets,
+          count(*) FILTER (WHERE ticket_status = 'Attended') as attended_tickets,
+          count(*) FILTER (WHERE ticket_status = 'Closed') as closed_tickets,
+          count(*) FILTER (WHERE ticket_status = 'MR Required') as mr_required_tickets
+        FROM non_comm_ticket_analytics
+        WHERE ${where} AND section IS NOT NULL AND section != ''
+        GROUP BY circle, division, section
         ORDER BY total_non_comm DESC
         LIMIT 250
       `),
@@ -1267,38 +1279,36 @@ app.get('/api/analytics/ticket-correlation', async (req, res) => {
       // 5. Non-Comm Category vs Ticket Status Matrix
       queryDuck(`
         SELECT 
-          s.comm_category,
+          comm_category,
           count(*) as total_meters,
-          count(c.ticket_no) as tickets_raised,
-          count(*) - count(c.ticket_no) as no_ticket_raised,
-          ROUND(count(c.ticket_no) * 100.0 / NULLIF(count(*), 0), 2) as coverage_pct,
-          count(*) FILTER (WHERE c.ticket_status = 'Pending') as pending_tickets,
-          count(*) FILTER (WHERE c.ticket_status = 'Notify to Discom') as notify_discom_tickets,
-          count(*) FILTER (WHERE c.ticket_status = 'Attended') as attended_tickets,
-          count(*) FILTER (WHERE c.ticket_status = 'Closed') as closed_tickets,
-          count(*) FILTER (WHERE c.ticket_status = 'MR Required') as mr_required_tickets,
-          count(*) FILTER (WHERE c.is_repeat_consumer = 1) as repeat_consumers
-        FROM smart_meter_analytics s
-        LEFT JOIN temp_latest_complaint c ON s.msn = c.msn
+          count(ticket_no) as tickets_raised,
+          count(*) - count(ticket_no) as no_ticket_raised,
+          ROUND(count(ticket_no) * 100.0 / NULLIF(count(*), 0), 2) as coverage_pct,
+          count(*) FILTER (WHERE ticket_status = 'Pending') as pending_tickets,
+          count(*) FILTER (WHERE ticket_status = 'Notify to Discom') as notify_discom_tickets,
+          count(*) FILTER (WHERE ticket_status = 'Attended') as attended_tickets,
+          count(*) FILTER (WHERE ticket_status = 'Closed') as closed_tickets,
+          count(*) FILTER (WHERE ticket_status = 'MR Required') as mr_required_tickets,
+          count(*) FILTER (WHERE is_repeat_consumer = 1) as repeat_consumers
+        FROM non_comm_ticket_analytics
         WHERE ${where}
-        GROUP BY s.comm_category
+        GROUP BY comm_category
         ORDER BY total_meters DESC
       `),
 
       // 6. Remarks / Issue Categories for Non-Comm meters
       queryDuck(`
         SELECT 
-          COALESCE(c.main_remarks, 'Pending Field Action') as main_remarks,
+          COALESCE(main_remarks, 'Pending Field Action') as main_remarks,
           count(*) as count,
-          count(*) FILTER (WHERE c.ticket_status = 'Pending') as pending,
-          count(*) FILTER (WHERE c.ticket_status = 'Notify to Discom') as notify_discom,
-          count(*) FILTER (WHERE c.ticket_status = 'Attended') as attended,
-          count(*) FILTER (WHERE c.ticket_status = 'Closed') as closed,
-          count(*) FILTER (WHERE c.ticket_status = 'MR Required') as mr_required
-        FROM smart_meter_analytics s
-        JOIN temp_latest_complaint c ON s.msn = c.msn
-        WHERE ${where}
-        GROUP BY c.main_remarks
+          count(*) FILTER (WHERE ticket_status = 'Pending') as pending,
+          count(*) FILTER (WHERE ticket_status = 'Notify to Discom') as notify_discom,
+          count(*) FILTER (WHERE ticket_status = 'Attended') as attended,
+          count(*) FILTER (WHERE ticket_status = 'Closed') as closed,
+          count(*) FILTER (WHERE ticket_status = 'MR Required') as mr_required
+        FROM non_comm_ticket_analytics
+        WHERE ${where} AND has_ticket = 1
+        GROUP BY main_remarks
         ORDER BY count DESC
         LIMIT 50
       `),
@@ -1306,10 +1316,10 @@ app.get('/api/analytics/ticket-correlation', async (req, res) => {
       // 7. Status Breakdown (for Table 1 format)
       queryDuck(`
         SELECT 
-          c.ticket_status,
+          ticket_status,
           count(*) as count,
-          ROUND(count(*) * 100.0 / NULLIF((SELECT count(c2.ticket_no) FROM smart_meter_analytics s2 JOIN temp_latest_complaint c2 ON s2.msn = c2.msn WHERE ${where.replace(/s\./g, 's2.').replace(/c\./g, 'c2.')}), 0), 2) as pct_of_raised,
-          CASE c.ticket_status
+          ROUND(count(*) * 100.0 / NULLIF((SELECT count(ticket_no) FROM non_comm_ticket_analytics WHERE ${where} AND has_ticket = 1), 0), 2) as pct_of_raised,
+          CASE ticket_status
             WHEN 'Pending' THEN 'Ticket open in MDMS awaiting field team / technician site visit'
             WHEN 'Notify to Discom' THEN 'Consumer premise issue flagged to Discom (Line cut, door closed, PDCO)'
             WHEN 'Attended' THEN 'Technician has attended the site; under observation / pending closure'
@@ -1317,29 +1327,27 @@ app.get('/api/analytics/ticket-correlation', async (req, res) => {
             WHEN 'MR Required' THEN 'Meter replacement recommended due to hardware/burnt failure'
             ELSE 'Field action in progress'
           END as status_definition
-        FROM smart_meter_analytics s
-        JOIN temp_latest_complaint c ON s.msn = c.msn
-        WHERE ${where}
-        GROUP BY c.ticket_status
+        FROM non_comm_ticket_analytics
+        WHERE ${where} AND has_ticket = 1
+        GROUP BY ticket_status
         ORDER BY count DESC
       `),
 
       // 8. Ticket Aging Buckets (for Table 6)
       queryDuck(`
         SELECT 
-          c.aging_bucket,
+          ticket_aging_bucket as aging_bucket,
           count(*) as total_count,
-          ROUND(count(*) * 100.0 / NULLIF((SELECT count(c3.ticket_no) FROM smart_meter_analytics s3 JOIN temp_latest_complaint c3 ON s3.msn = c3.msn WHERE ${where.replace(/s\./g, 's3.').replace(/c\./g, 'c3.')}), 0), 2) as pct_share,
-          count(*) FILTER (WHERE c.ticket_status = 'Pending') as pending,
-          count(*) FILTER (WHERE c.ticket_status = 'Notify to Discom') as notify_discom,
-          count(*) FILTER (WHERE c.ticket_status = 'Attended') as attended,
-          count(*) FILTER (WHERE c.ticket_status = 'Closed') as closed,
-          count(*) FILTER (WHERE c.ticket_status = 'MR Required') as mr_required
-        FROM smart_meter_analytics s
-        JOIN temp_latest_complaint c ON s.msn = c.msn
-        WHERE ${where}
-        GROUP BY c.aging_bucket
-        ORDER BY CASE c.aging_bucket 
+          ROUND(count(*) * 100.0 / NULLIF((SELECT count(ticket_no) FROM non_comm_ticket_analytics WHERE ${where} AND has_ticket = 1), 0), 2) as pct_share,
+          count(*) FILTER (WHERE ticket_status = 'Pending') as pending,
+          count(*) FILTER (WHERE ticket_status = 'Notify to Discom') as notify_discom,
+          count(*) FILTER (WHERE ticket_status = 'Attended') as attended,
+          count(*) FILTER (WHERE ticket_status = 'Closed') as closed,
+          count(*) FILTER (WHERE ticket_status = 'MR Required') as mr_required
+        FROM non_comm_ticket_analytics
+        WHERE ${where} AND has_ticket = 1
+        GROUP BY ticket_aging_bucket
+        ORDER BY CASE ticket_aging_bucket 
           WHEN '<= 2 Days' THEN 1 
           WHEN '3 - 7 Days' THEN 2 
           WHEN '8 - 15 Days' THEN 3 
@@ -1351,18 +1359,17 @@ app.get('/api/analytics/ticket-correlation', async (req, res) => {
       // 9. Repeat & Chronic Issues by Main Reason Bucket
       queryDuck(`
         SELECT 
-          COALESCE(c.main_remarks, 'Pending Field Action') as main_remarks,
+          COALESCE(main_remarks, 'Pending Field Action') as main_remarks,
           count(*) as total_silent_with_ticket,
-          count(*) FILTER (WHERE c.consumer_total_tickets = 1) as single_ticket_consumers,
-          count(*) FILTER (WHERE c.consumer_total_tickets = 2) as repeat_2_tickets,
-          count(*) FILTER (WHERE c.consumer_total_tickets >= 3) as chronic_3plus_tickets,
-          count(*) FILTER (WHERE c.consumer_open_tickets >= 1) as open_ticket_consumers,
-          count(*) FILTER (WHERE c.consumer_open_tickets > 1) as multiple_open_tickets,
-          ROUND(count(*) FILTER (WHERE c.is_repeat_consumer = 1) * 100.0 / NULLIF(count(*), 0), 2) as repeat_rate_pct
-        FROM smart_meter_analytics s
-        JOIN temp_latest_complaint c ON s.msn = c.msn
-        WHERE ${where}
-        GROUP BY c.main_remarks
+          count(*) FILTER (WHERE consumer_total_tickets = 1) as single_ticket_consumers,
+          count(*) FILTER (WHERE consumer_total_tickets = 2) as repeat_2_tickets,
+          count(*) FILTER (WHERE consumer_total_tickets >= 3) as chronic_3plus_tickets,
+          count(*) FILTER (WHERE consumer_open_tickets >= 1) as open_ticket_consumers,
+          count(*) FILTER (WHERE consumer_open_tickets > 1) as multiple_open_tickets,
+          ROUND(count(*) FILTER (WHERE is_repeat_consumer = 1) * 100.0 / NULLIF(count(*), 0), 2) as repeat_rate_pct
+        FROM non_comm_ticket_analytics
+        WHERE ${where} AND has_ticket = 1
+        GROUP BY main_remarks
         ORDER BY total_silent_with_ticket DESC
         LIMIT 30
       `),
@@ -1370,27 +1377,26 @@ app.get('/api/analytics/ticket-correlation', async (req, res) => {
       // 10. Open Tickets Distribution against Same Consumer
       queryDuck(`
         SELECT 
-          c.open_ticket_bucket,
+          open_ticket_bucket,
           count(*) as consumer_count,
-          ROUND(count(*) * 100.0 / NULLIF((SELECT count(c4.ticket_no) FROM smart_meter_analytics s4 JOIN temp_latest_complaint c4 ON s4.msn = c4.msn WHERE ${where.replace(/s\./g, 's4.').replace(/c\./g, 'c4.')}), 0), 2) as pct_share,
-          CASE c.open_ticket_bucket
+          ROUND(count(*) * 100.0 / NULLIF((SELECT count(ticket_no) FROM non_comm_ticket_analytics WHERE ${where} AND has_ticket = 1), 0), 2) as pct_share,
+          CASE open_ticket_bucket
             WHEN '0 Open Tickets' THEN 'All prior tickets closed in MDMS, yet meter currently silent in HES (Suspected false closure)'
             WHEN '1 Open Ticket' THEN 'Single open ticket under normal field operational lifecycle'
             WHEN '2 Open Tickets' THEN 'Repeated failure: 2 active open tickets on premise requiring technician attention'
             WHEN '>= 3 Open Tickets' THEN 'Chronic failure hotspot: >=3 open tickets on same consumer requiring supervisor audit'
             ELSE 'Field action in progress'
           END as operational_definition,
-          CASE c.open_ticket_bucket
+          CASE open_ticket_bucket
             WHEN '>= 3 Open Tickets' THEN 'CRITICAL'
             WHEN '2 Open Tickets' THEN 'HIGH'
             WHEN '1 Open Ticket' THEN 'MEDIUM'
             ELSE 'AUDIT'
           END as priority_level
-        FROM smart_meter_analytics s
-        JOIN temp_latest_complaint c ON s.msn = c.msn
-        WHERE ${where}
-        GROUP BY c.open_ticket_bucket
-        ORDER BY CASE c.open_ticket_bucket
+        FROM non_comm_ticket_analytics
+        WHERE ${where} AND has_ticket = 1
+        GROUP BY open_ticket_bucket
+        ORDER BY CASE open_ticket_bucket
           WHEN '>= 3 Open Tickets' THEN 1
           WHEN '2 Open Tickets' THEN 2
           WHEN '1 Open Ticket' THEN 3
@@ -1399,7 +1405,7 @@ app.get('/api/analytics/ticket-correlation', async (req, res) => {
       `)
     ]);
 
-    res.json({
+    const payload = {
       success: true,
       kpis: kpiRows[0] || {},
       circles,
@@ -1411,7 +1417,10 @@ app.get('/api/analytics/ticket-correlation', async (req, res) => {
       agingBuckets: agingBuckets || [],
       repeatReasonBuckets: repeatReasonBuckets || [],
       openTicketDistribution: openTicketDistribution || []
-    });
+    };
+
+    setCache(cacheKey, payload);
+    res.json(payload);
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -1425,9 +1434,6 @@ app.get('/api/meters', async (req, res) => {
     const whereClause = buildWhereClause(req.query);
 
     let countSql = `SELECT count(*) as total FROM ${table} WHERE ${whereClause}`;
-    if (category === 'consumer') {
-      countSql = `SELECT count(*) as total FROM ${table} s LEFT JOIN temp_latest_complaint c ON s.msn = c.msn WHERE ${whereClause}`;
-    }
     const countRows = await queryDuck(countSql);
     const total = countRows[0] ? countRows[0].total : 0;
 
@@ -1437,27 +1443,26 @@ app.get('/api/meters', async (req, res) => {
     if (category === 'consumer') {
       sql = `
         SELECT 
-          s.msn, REGEXP_REPLACE(s.consumer_id, '\.0+$', '') as consumer_id, s.name, s.circle, s.division, s.subdivision, s.section,
-          s.feeder, s.dt_name, s.category, s.phase, s.make, s.communication_type,
-          s.department as hes_source, s.installed_date,
-          s.last_comm_timestamp as last_reading_time,
-          COALESCE(s.duration_days, 999) as ageing,
-          s.comm_category, s.tariff,
-          CASE WHEN c.ticket_no IS NOT NULL THEN 'YES' ELSE 'NO' END as ticket_raised,
-          COALESCE(c.ticket_status, 'No Ticket') as ticket_status,
-          COALESCE(c.ticket_no, '-') as ticket_no,
-          COALESCE(c.main_remarks, '-') as main_remarks,
-          COALESCE(c.sub_remarks, '-') as sub_remarks,
-          COALESCE(c.create_date, '-') as ticket_date,
-          COALESCE(c.aging_days, 0) as ticket_aging,
-          COALESCE(c.consumer_total_tickets, 0) as total_tickets_count,
-          COALESCE(c.consumer_open_tickets, 0) as open_tickets_count,
-          COALESCE(c.repeat_bucket, '1 Ticket') as repeat_bucket,
-          COALESCE(c.open_ticket_bucket, '0 Open Tickets') as open_ticket_bucket
-        FROM ${table} s
-        LEFT JOIN temp_latest_complaint c ON s.msn = c.msn
+          msn, REGEXP_REPLACE(consumer_id, '\\.0+$', '') as consumer_id, name, circle, division, subdivision, section,
+          feeder, dt_name, category, phase, make, communication_type,
+          department as hes_source, installed_date,
+          last_comm_timestamp as last_reading_time,
+          COALESCE(duration_days, 999) as ageing,
+          comm_category, tariff,
+          ticket_raised,
+          ticket_status,
+          ticket_no,
+          main_remarks,
+          sub_remarks,
+          ticket_date,
+          ticket_aging,
+          total_tickets_count,
+          open_tickets_count,
+          repeat_bucket,
+          open_ticket_bucket
+        FROM ${table}
         WHERE ${whereClause}
-        ORDER BY s.duration_days DESC, s.circle ASC
+        ORDER BY duration_days DESC, circle ASC
         LIMIT ${parseInt(limit)} OFFSET ${offset}
       `;
     } else if (category === 'dt') {
@@ -1550,63 +1555,60 @@ app.get('/api/export', async (req, res) => {
     if (category === 'consumer') {
       sql = `
         SELECT 
-          s.msn as "Meter No (MSN)",
-          REGEXP_REPLACE(s.consumer_id, '\.0+$', '') as "Consumer ID",
-          s.name as "Consumer Name",
-          s.circle as "Circle",
-          s.division as "Division",
-          s.section as "Section",
-          s.feeder as "Feeder",
-          s.dt_name as "DT Name",
-          s.phase as "Phase",
-          s.make as "Make",
-          s.communication_type as "Comm Type",
-          s.last_comm_timestamp as "Last Reading Timestamp",
-          COALESCE(s.duration_days, 999) as "Ageing (Days)",
-          s.comm_category as "Communication Status",
-          CASE WHEN c.ticket_no IS NOT NULL THEN 'YES' ELSE 'NO' END as "Ticket Raised?",
-          COALESCE(c.ticket_status, 'No Ticket Raised') as "Ticket Status",
-          COALESCE(c.ticket_no, '-') as "Ticket No",
-          COALESCE(c.consumer_total_tickets, 0) as "Total Tickets Raised",
-          COALESCE(c.consumer_open_tickets, 0) as "Open Tickets Count",
-          COALESCE(c.repeat_bucket, '1 Ticket') as "Repeat / Chronic Category",
-          COALESCE(c.main_remarks, 'No Ticket Raised') as "Ticket Main Remarks",
-          COALESCE(c.sub_remarks, '-') as "Ticket Sub Remarks",
-          COALESCE(c.create_date, '-') as "Ticket Creation Date",
-          COALESCE(c.aging_days, 0) as "Ticket Aging (Days)"
-        FROM ${table} s
-        LEFT JOIN temp_latest_complaint c ON s.msn = c.msn
+          msn as "Meter No (MSN)",
+          REGEXP_REPLACE(consumer_id, '\\.0+$', '') as "Consumer ID",
+          name as "Consumer Name",
+          circle as "Circle",
+          division as "Division",
+          section as "Section",
+          feeder as "Feeder",
+          dt_name as "DT Name",
+          phase as "Phase",
+          make as "Make",
+          communication_type as "Comm Type",
+          last_comm_timestamp as "Last Reading Timestamp",
+          COALESCE(duration_days, 999) as "Ageing (Days)",
+          comm_category as "Communication Status",
+          ticket_raised as "Ticket Raised?",
+          ticket_status as "Ticket Status",
+          ticket_no as "Ticket No",
+          total_tickets_count as "Total Tickets Raised",
+          open_tickets_count as "Open Tickets Count",
+          repeat_bucket as "Repeat / Chronic Category",
+          main_remarks as "Ticket Main Remarks",
+          sub_remarks as "Ticket Sub Remarks",
+          ticket_date as "Ticket Creation Date",
+          ticket_aging as "Ticket Aging (Days)"
+        FROM smart_meter_analytics
         WHERE ${whereClause}
-        ORDER BY 13 DESC
+        ORDER BY duration_days DESC
         LIMIT 50000
       `;
     } else if (category === 'correlation') {
       sql = `
         SELECT 
-          s.circle as "Circle",
-          s.division as "Division",
-          s.section as "Section",
-          s.msn as "Meter No (MSN)",
-          REGEXP_REPLACE(s.consumer_id, '\.0+$', '') as "Consumer ID",
-          s.name as "Consumer Name",
-          s.feeder as "Feeder",
-          s.dt_name as "DT Name",
-          s.comm_category as "Communication Status",
-          COALESCE(s.duration_days, 999) as "Silent Ageing (Days)",
-          CASE WHEN c.ticket_no IS NOT NULL THEN 'YES' ELSE 'NO' END as "Ticket Raised?",
-          COALESCE(c.ticket_status, 'No Ticket Raised') as "Ticket Status",
-          COALESCE(c.ticket_no, '-') as "Ticket No",
-          COALESCE(c.consumer_total_tickets, 0) as "Total Tickets Raised",
-          COALESCE(c.consumer_open_tickets, 0) as "Open Tickets Count",
-          COALESCE(c.repeat_bucket, '1 Ticket') as "Repeat / Chronic Category",
-          COALESCE(c.main_remarks, 'No Ticket Raised') as "Ticket Main Remarks",
-          COALESCE(c.sub_remarks, '-') as "Ticket Sub Remarks",
-          COALESCE(c.create_date, '-') as "Ticket Creation Date",
-          COALESCE(c.aging_days, 0) as "Ticket Aging (Days)"
-        FROM smart_meter_analytics s
-        LEFT JOIN temp_latest_complaint c ON s.msn = c.msn
-        WHERE s.is_non_comm = 1
-        ORDER BY s.circle, s.division, s.duration_days DESC
+          circle as "Circle",
+          division as "Division",
+          section as "Section",
+          msn as "Meter No (MSN)",
+          REGEXP_REPLACE(consumer_id, '\\.0+$', '') as "Consumer ID",
+          name as "Consumer Name",
+          feeder as "Feeder",
+          dt_name as "DT Name",
+          comm_category as "Communication Status",
+          COALESCE(duration_days, 999) as "Silent Ageing (Days)",
+          CASE WHEN ticket_no IS NOT NULL AND ticket_no != '-' THEN 'YES' ELSE 'NO' END as "Ticket Raised?",
+          ticket_status as "Ticket Status",
+          ticket_no as "Ticket No",
+          consumer_total_tickets as "Total Tickets Raised",
+          consumer_open_tickets as "Open Tickets Count",
+          repeat_bucket as "Repeat / Chronic Category",
+          main_remarks as "Ticket Main Remarks",
+          sub_remarks as "Ticket Sub Remarks",
+          create_date as "Ticket Creation Date",
+          ticket_aging_days as "Ticket Aging (Days)"
+        FROM non_comm_ticket_analytics
+        ORDER BY circle, division, duration_days DESC
         LIMIT 50000
       `;
     } else if (category === 'dt') {
@@ -1710,6 +1712,202 @@ app.get('/api/export', async (req, res) => {
 
   } catch (err) {
     res.status(500).send('Error generating export: ' + err.message);
+  }
+});
+
+// --- Daily Churn & Trend Analytics API ---
+let cachedChurnData = null;
+let lastChurnMtime = 0;
+
+function getChurnData() {
+  const churnFilePath = path.join(dataDir, 'daily_churn_analytics.json');
+  if (!fs.existsSync(churnFilePath)) return null;
+  const stat = fs.statSync(churnFilePath);
+  if (!cachedChurnData || stat.mtimeMs > lastChurnMtime) {
+    try {
+      cachedChurnData = JSON.parse(fs.readFileSync(churnFilePath, 'utf8'));
+      lastChurnMtime = stat.mtimeMs;
+    } catch (e) {
+      console.error('Error reading daily_churn_analytics.json:', e);
+    }
+  }
+  return cachedChurnData;
+}
+
+app.get(['/api/daily-churn', '/api/analytics/daily-churn'], (req, res) => {
+  try {
+    const rawData = getChurnData();
+    if (!rawData) {
+      return res.status(404).json({ success: false, message: 'Daily churn analytics not yet generated.' });
+    }
+
+    const category = (req.query.category || 'consumer').toLowerCase();
+    const circleFilter = req.query.circle ? req.query.circle.toUpperCase() : null;
+    const divisionFilter = req.query.division ? req.query.division.toUpperCase() : null;
+
+    const catData = rawData.categories[category] || rawData.categories['consumer'];
+    if (!catData) {
+      return res.status(404).json({ success: false, message: `No churn data for category ${category}` });
+    }
+
+    let summary = { ...catData.summary };
+    let agingMatrix = [...catData.agingMatrix];
+    let circleTable = [...catData.circleTable];
+    let divisionTable = [...catData.divisionTable];
+
+    if (circleFilter && circleFilter !== 'ALL') {
+      circleTable = circleTable.filter(c => c.circle === circleFilter);
+      divisionTable = divisionTable.filter(d => d.circle === circleFilter);
+    }
+
+    if (divisionFilter && divisionFilter !== 'ALL') {
+      divisionTable = divisionTable.filter(d => d.division === divisionFilter);
+    }
+
+    // If filtered by circle or division, re-aggregate the summary KPIs to match filter
+    if ((circleFilter && circleFilter !== 'ALL') || (divisionFilter && divisionFilter !== 'ALL')) {
+      const scopeRows = (divisionFilter && divisionFilter !== 'ALL') ? divisionTable : circleTable;
+      const ySilent = scopeRows.reduce((acc, r) => acc + r.yesterdaySilent, 0);
+      const clrToday = scopeRows.reduce((acc, r) => acc + r.clearedToday, 0);
+      const newToday = scopeRows.reduce((acc, r) => acc + r.newAdditionsToday, 0);
+      const tSilent = scopeRows.reduce((acc, r) => acc + r.todaySilent, 0);
+      const net = newToday - clrToday;
+      summary = {
+        ...summary,
+        yesterdaySilent: ySilent,
+        todaySilent: tSilent,
+        clearedToday: clrToday,
+        newAdditionsToday: newToday,
+        netChange: net,
+        stillSilent: tSilent - newToday,
+        recoveryRatePct: ySilent > 0 ? ((clrToday / ySilent) * 100).toFixed(2) : '0.00'
+      };
+    }
+
+    // Filter trend history by category
+    const trendHistory = (rawData.trendHistory || []).filter(t => t.category === category);
+    const circleTrendHistory = (rawData.circleTrendHistory || []).filter(t => t.category === category);
+    const divisionTrendHistory = (rawData.divisionTrendHistory || []).filter(t => t.category === category);
+
+    res.json({
+      success: true,
+      category,
+      todayDate: rawData.todayDate,
+      todayTime: rawData.todayTime,
+      yesterdayDate: rawData.yesterdayDate,
+      yesterdayTime: rawData.yesterdayTime,
+      summary,
+      agingMatrix,
+      circleTable,
+      divisionTable,
+      trendHistory,
+      circleTrendHistory,
+      divisionTrendHistory
+    });
+
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.get('/api/export/daily-churn', (req, res) => {
+  try {
+    const rawData = getChurnData();
+    if (!rawData) return res.status(404).send('No data available');
+    const category = (req.query.category || 'consumer').toLowerCase();
+    const exportType = req.query.type || 'circle'; // 'circle', 'division', 'aging', 'trend', 'circle_trend', 'division_trend'
+    const catData = rawData.categories[category] || rawData.categories['consumer'];
+
+    let rows = [];
+    let filename = `sbpdcl_${category}_daily_churn_${exportType}_${Date.now()}.csv`;
+
+    if (exportType === 'circle') {
+      rows = catData.circleTable.map(r => ({
+        "Circle": r.circle,
+        "Yesterday Silent (Last Sync)": r.yesterdaySilent,
+        "Cleared (4-7 Days)": r.cleared_4_7d,
+        "Cleared (8-30 Days)": r.cleared_8_30d,
+        "Cleared (>30 Days)": r.cleared_gt30d,
+        "Cleared (Never Comm)": r.cleared_never,
+        "Total Cleared Today": r.clearedToday,
+        "New Additions Today": r.newAdditionsToday,
+        "Net Backlog Change": r.netChange,
+        "Today Silent (Current Sync)": r.todaySilent,
+        "Recovery Rate (%)": r.recoveryRatePct
+      }));
+    } else if (exportType === 'division') {
+      rows = catData.divisionTable.map(r => ({
+        "Circle": r.circle,
+        "Division": r.division,
+        "Yesterday Silent (Last Sync)": r.yesterdaySilent,
+        "Cleared (4-7 Days)": r.cleared_4_7d,
+        "Cleared (8-30 Days)": r.cleared_8_30d,
+        "Cleared (>30 Days)": r.cleared_gt30d,
+        "Cleared (Never Comm)": r.cleared_never,
+        "Total Cleared Today": r.clearedToday,
+        "New Additions Today": r.newAdditionsToday,
+        "Net Backlog Change": r.netChange,
+        "Today Silent (Current Sync)": r.todaySilent,
+        "Recovery Rate (%)": r.recoveryRatePct
+      }));
+    } else if (exportType === 'aging') {
+      rows = catData.agingMatrix.map(r => ({
+        "Aging Bucket": r.agingBucket,
+        "Yesterday Silent": r.yesterdaySilent,
+        "Cleared Today": r.clearedToday,
+        "Clearance Rate (%)": r.clearanceRatePct,
+        "Still Silent": r.stillSilent,
+        "New Additions Today": r.newAdditionsToday,
+        "Today Silent": r.todaySilent,
+        "Net Backlog Change": r.netChange
+      }));
+    } else if (exportType === 'trend') {
+      rows = (rawData.trendHistory || []).filter(t => t.category === category).map(r => ({
+        "Date": r.date,
+        "Compared With": r.compareDate,
+        "Category": r.category.toUpperCase(),
+        "Base Silent (Yesterday Last Sync)": r.yesterdaySilent,
+        "Cleared (4-7 Days)": r.cleared_4_7d,
+        "Cleared (8-15 Days)": r.cleared_8_15d,
+        "Cleared (16-30 Days)": r.cleared_16_30d,
+        "Cleared (>30 Days)": r.cleared_gt30d,
+        "Cleared (Never Comm)": r.cleared_never,
+        "Total Cleared Today": r.clearedToday,
+        "New Additions Today": r.newAdditionsToday,
+        "Net Change": r.netChange,
+        "Ending Silent (Current Sync)": r.todaySilent,
+        "Recovery Rate (%)": r.recoveryRatePct
+      }));
+    } else if (exportType === 'circle_trend') {
+      rows = (rawData.circleTrendHistory || []).filter(t => t.category === category).map(r => ({
+        "Date": r.date,
+        "Circle": r.circle,
+        "Total Non Comm": r.totalNonComm,
+        "Today Addition": r.todayAddition,
+        "Today Clear": r.todayClear,
+        "Net Addition": r.netAddition
+      }));
+    } else if (exportType === 'division_trend') {
+      rows = (rawData.divisionTrendHistory || []).filter(t => t.category === category).map(r => ({
+        "Date": r.date,
+        "Circle": r.circle,
+        "Division": r.division,
+        "Total Non Comm": r.totalNonComm,
+        "Today Addition": r.todayAddition,
+        "Today Clear": r.todayClear,
+        "Net Addition": r.netAddition
+      }));
+    }
+
+    if (rows.length === 0) return res.status(404).send('No data to export');
+    const headers = Object.keys(rows[0]);
+    const csv = [headers.join(','), ...rows.map(r => headers.map(h => `"${String(r[h] || '').replace(/"/g, '""')}"`).join(','))].join('\r\n');
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(csv);
+  } catch (err) {
+    res.status(500).send('Export error: ' + err.message);
   }
 });
 

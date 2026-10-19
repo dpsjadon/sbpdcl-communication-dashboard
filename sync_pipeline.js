@@ -91,240 +91,58 @@ async function runSync(options = {}) {
     ]);
     log('AUTH', 10, 'Authentication successful.');
 
+    // Helper to queue a report safely without crashing the entire sync pipeline
+    const safeQueue = async (stepTag, progress, label, fn) => {
+      try {
+        log(stepTag, progress, `Queuing ${label}...`);
+        await fn();
+        log(stepTag, progress + 2, `${label} queued successfully.`);
+      } catch (err) {
+        log(stepTag, progress, `[Notice] ${label} queue notice: ${err.message}. Continuing sync.`);
+      }
+    };
+
     // -------------------------------------------------------------
     // 1. CONSUMER METERS QUEUEING
     // -------------------------------------------------------------
     if (doConsumer) {
       if (doConsMaster) {
-        log('CONSUMER_MASTER', 15, 'Queuing Prepaid Total Consumers from Main Dashboard...');
-        await page.goto('https://mdm.sbpdclinfra.in/MDMS/DashBoard/MainDashboard', { waitUntil: 'networkidle2', timeout: 45000 });
-        await page.waitForSelector('#ContentPlaceHolder1_authsub_lblTC', { timeout: 45000 });
-        await sleep(1500);
+        await safeQueue('CONSUMER_MASTER', 15, 'Prepaid Total Consumers from Main Dashboard', async () => {
+          await page.goto('https://mdm.sbpdclinfra.in/MDMS/DashBoard/MainDashboard', { waitUntil: 'networkidle2', timeout: 60000 });
+          await page.waitForSelector('#ContentPlaceHolder1_authsub_lblTC', { timeout: 45000 });
+          await sleep(1500);
 
-        await Promise.all([
-          page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 45000 }).catch(() => {}),
-          page.click('#ContentPlaceHolder1_authsub_lblTC')
-        ]);
+          await Promise.all([
+            page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 60000 }).catch(() => {}),
+            page.click('#ContentPlaceHolder1_authsub_lblTC')
+          ]);
 
-        await page.waitForSelector('#ContentPlaceHolder1_authsub_btnDownload', { visible: true, timeout: 60000 });
-        await sleep(1500);
+          await page.waitForSelector('#ContentPlaceHolder1_authsub_btnDownload', { visible: true, timeout: 60000 });
+          await sleep(1500);
 
-        await Promise.all([
-          page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 45000 }).catch(() => {}),
-          page.click('#ContentPlaceHolder1_authsub_btnDownload')
-        ]);
-        await sleep(2000);
-        log('CONSUMER_MASTER', 20, 'Prepaid Total Consumers queued.');
+          await Promise.all([
+            page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 60000 }).catch(() => {}),
+            page.click('#ContentPlaceHolder1_authsub_btnDownload')
+          ]);
+          await sleep(2000);
+        });
       }
 
       if (doConsComm) {
         // Last Comm Cyan
-        log('CONSUMER_COMM', 25, 'Queuing Last Communication (HES-Cyan)...');
-        await page.goto('https://mdm.sbpdclinfra.in/MIS/ConsumerReport?pn=2', { waitUntil: 'networkidle2', timeout: 45000 });
-        await page.waitForSelector('#ContentPlaceHolder1_authsub_ddlReportType', { timeout: 45000 });
-        await sleep(1500);
-        await page.select('#ContentPlaceHolder1_authsub_ddlReportType', '10');
-        await page.evaluate(() => document.querySelector('#ContentPlaceHolder1_authsub_ddlReportType')?.dispatchEvent(new Event('change', { bubbles: true })));
-        await sleep(3000);
-
-        await page.waitForSelector('#ContentPlaceHolder1_authsub_ddlHES', { timeout: 30000 });
-        await page.select('#ContentPlaceHolder1_authsub_ddlHES', '4');
-        await page.evaluate(() => document.querySelector('#ContentPlaceHolder1_authsub_ddlHES')?.dispatchEvent(new Event('change', { bubbles: true })));
-        await sleep(2000);
-
-        await Promise.all([
-          page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 60000 }).catch(() => {}),
-          page.click('#ContentPlaceHolder1_authsub_btnView')
-        ]);
-        await sleep(1500);
-        await page.waitForSelector('#ContentPlaceHolder1_authsub_btnDownloadRequest', { visible: true, timeout: 60000 });
-        await page.click('#ContentPlaceHolder1_authsub_btnDownloadRequest');
-        await sleep(2500);
-        log('CONSUMER_COMM', 30, 'Queued Last Communication (HES-Cyan).');
-
-        // Last Comm Airtel
-        log('CONSUMER_COMM', 35, 'Queuing Last Communication (HES-Airtel)...');
-        await page.goto('https://mdm.sbpdclinfra.in/MIS/ConsumerReport?pn=2', { waitUntil: 'networkidle2', timeout: 45000 });
-        await page.waitForSelector('#ContentPlaceHolder1_authsub_ddlReportType', { timeout: 45000 });
-        await sleep(1500);
-        await page.select('#ContentPlaceHolder1_authsub_ddlReportType', '10');
-        await page.evaluate(() => document.querySelector('#ContentPlaceHolder1_authsub_ddlReportType')?.dispatchEvent(new Event('change', { bubbles: true })));
-        await sleep(3000);
-
-        await page.waitForSelector('#ContentPlaceHolder1_authsub_ddlHES', { timeout: 30000 });
-        await page.select('#ContentPlaceHolder1_authsub_ddlHES', '6');
-        await page.evaluate(() => document.querySelector('#ContentPlaceHolder1_authsub_ddlHES')?.dispatchEvent(new Event('change', { bubbles: true })));
-        await sleep(2000);
-
-        await Promise.all([
-          page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 60000 }).catch(() => {}),
-          page.click('#ContentPlaceHolder1_authsub_btnView')
-        ]);
-        await sleep(1500);
-        await page.waitForSelector('#ContentPlaceHolder1_authsub_btnDownloadRequest', { visible: true, timeout: 60000 });
-        await page.click('#ContentPlaceHolder1_authsub_btnDownloadRequest');
-        await sleep(2500);
-        log('CONSUMER_COMM', 40, 'Queued Last Communication (HES-Airtel).');
-      }
-    }
-
-    // -------------------------------------------------------------
-    // 2. DT METERS QUEUEING
-    // -------------------------------------------------------------
-    if (doDT) {
-      if (doDTMaster) {
-        log('DT_MASTER', 45, 'Queuing DT Meter Master from /MIS/DTRReport?pn=1...');
-        await page.goto('https://mdm.sbpdclinfra.in/MIS/DTRReport?pn=1', { waitUntil: 'networkidle2', timeout: 45000 });
-        await page.waitForSelector('#ContentPlaceHolder1_authsub_ddlReportType', { timeout: 45000 });
-        await sleep(1000);
-        await page.select('#ContentPlaceHolder1_authsub_ddlReportType', '1');
-        await page.evaluate(() => document.querySelector('#ContentPlaceHolder1_authsub_ddlReportType')?.dispatchEvent(new Event('change', { bubbles: true })));
-        await sleep(2000);
-        await Promise.all([
-          page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 60000 }).catch(() => {}),
-          page.click('#ContentPlaceHolder1_authsub_btnView')
-        ]);
-        await sleep(1500);
-        await page.waitForSelector('#ContentPlaceHolder1_authsub_btnDownloadRequest', { visible: true, timeout: 60000 });
-        await page.click('#ContentPlaceHolder1_authsub_btnDownloadRequest');
-        await sleep(2500);
-        log('DT_MASTER', 50, 'DT Meter Master queued successfully.');
-      }
-
-      if (doDTNonComm) {
-        log('DT_NON_COMM', 53, 'Queuing DT Non Communicating Report from /MIS/DTRReport?pn=2...');
-        await page.goto('https://mdm.sbpdclinfra.in/MIS/DTRReport?pn=2', { waitUntil: 'networkidle2', timeout: 45000 });
-        await page.waitForSelector('#ContentPlaceHolder1_authsub_ddlReportType', { timeout: 45000 });
-        await sleep(1000);
-        await page.select('#ContentPlaceHolder1_authsub_ddlReportType', '11');
-        await page.evaluate(() => document.querySelector('#ContentPlaceHolder1_authsub_ddlReportType')?.dispatchEvent(new Event('change', { bubbles: true })));
-        await sleep(2000);
-        await Promise.all([
-          page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 60000 }).catch(() => {}),
-          page.click('#ContentPlaceHolder1_authsub_btnView')
-        ]);
-        await sleep(1500);
-        await page.waitForSelector('#ContentPlaceHolder1_authsub_btnDownloadRequest', { visible: true, timeout: 60000 });
-        await page.click('#ContentPlaceHolder1_authsub_btnDownloadRequest');
-        await sleep(2500);
-        log('DT_NON_COMM', 56, 'DT Non Communicating Report queued.');
-      }
-
-      if (doDTNeverComm) {
-        log('DT_NEVER_COMM', 58, 'Queuing DT Never Communicating Report from /MIS/DTRReport?pn=2...');
-        await page.goto('https://mdm.sbpdclinfra.in/MIS/DTRReport?pn=2', { waitUntil: 'networkidle2', timeout: 45000 });
-        await page.waitForSelector('#ContentPlaceHolder1_authsub_ddlReportType', { timeout: 45000 });
-        await sleep(1000);
-        await page.select('#ContentPlaceHolder1_authsub_ddlReportType', '12');
-        await page.evaluate(() => document.querySelector('#ContentPlaceHolder1_authsub_ddlReportType')?.dispatchEvent(new Event('change', { bubbles: true })));
-        await sleep(2000);
-        await Promise.all([
-          page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 60000 }).catch(() => {}),
-          page.click('#ContentPlaceHolder1_authsub_btnView')
-        ]);
-        await sleep(1500);
-        await page.waitForSelector('#ContentPlaceHolder1_authsub_btnDownloadRequest', { visible: true, timeout: 60000 });
-        await page.click('#ContentPlaceHolder1_authsub_btnDownloadRequest');
-        await sleep(2500);
-        log('DT_NEVER_COMM', 60, 'DT Never Communicating Report queued.');
-      }
-    }
-
-    // -------------------------------------------------------------
-    // 3. FEEDER METERS QUEUEING
-    // -------------------------------------------------------------
-    if (doFeeder) {
-      if (doFdrMaster) {
-        log('FDR_MASTER', 63, 'Queuing Feeder Meter Master from /MIS/FeederReport?pn=1...');
-        await page.goto('https://mdm.sbpdclinfra.in/MIS/FeederReport?pn=1', { waitUntil: 'networkidle2', timeout: 45000 });
-        await page.waitForSelector('#ContentPlaceHolder1_authsub_ddlReportType', { timeout: 45000 });
-        await sleep(1000);
-        await page.select('#ContentPlaceHolder1_authsub_ddlReportType', '1');
-        await page.evaluate(() => document.querySelector('#ContentPlaceHolder1_authsub_ddlReportType')?.dispatchEvent(new Event('change', { bubbles: true })));
-        await sleep(2000);
-        await Promise.all([
-          page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 60000 }).catch(() => {}),
-          page.click('#ContentPlaceHolder1_authsub_btnView')
-        ]);
-        await sleep(1500);
-        await page.waitForSelector('#ContentPlaceHolder1_authsub_btnDownloadRequest', { visible: true, timeout: 60000 });
-        await page.click('#ContentPlaceHolder1_authsub_btnDownloadRequest');
-        await sleep(2500);
-        log('FDR_MASTER', 66, 'Feeder Meter Master queued.');
-      }
-
-      if (doFdrNonComm) {
-        log('FDR_NON_COMM', 68, 'Queuing Feeder Non Communicating Report from /MIS/FeederReport?pn=2...');
-        await page.goto('https://mdm.sbpdclinfra.in/MIS/FeederReport?pn=2', { waitUntil: 'networkidle2', timeout: 45000 });
-        await page.waitForSelector('#ContentPlaceHolder1_authsub_ddlReportType', { timeout: 45000 });
-        await sleep(1000);
-        await page.select('#ContentPlaceHolder1_authsub_ddlReportType', '11');
-        await page.evaluate(() => document.querySelector('#ContentPlaceHolder1_authsub_ddlReportType')?.dispatchEvent(new Event('change', { bubbles: true })));
-        await sleep(2000);
-        await Promise.all([
-          page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 60000 }).catch(() => {}),
-          page.click('#ContentPlaceHolder1_authsub_btnView')
-        ]);
-        await sleep(1500);
-        await page.waitForSelector('#ContentPlaceHolder1_authsub_btnDownloadRequest', { visible: true, timeout: 60000 });
-        await page.click('#ContentPlaceHolder1_authsub_btnDownloadRequest');
-        await sleep(2500);
-        log('FDR_NON_COMM', 70, 'Feeder Non Communicating Report queued.');
-      }
-
-      if (doFdrNeverComm) {
-        log('FDR_NEVER_COMM', 72, 'Queuing Feeder Never Communicating Report from /MIS/FeederReport?pn=2...');
-        await page.goto('https://mdm.sbpdclinfra.in/MIS/FeederReport?pn=2', { waitUntil: 'networkidle2', timeout: 45000 });
-        await page.waitForSelector('#ContentPlaceHolder1_authsub_ddlReportType', { timeout: 45000 });
-        await sleep(1000);
-        await page.select('#ContentPlaceHolder1_authsub_ddlReportType', '12');
-        await page.evaluate(() => document.querySelector('#ContentPlaceHolder1_authsub_ddlReportType')?.dispatchEvent(new Event('change', { bubbles: true })));
-        await sleep(2000);
-        await Promise.all([
-          page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 60000 }).catch(() => {}),
-          page.click('#ContentPlaceHolder1_authsub_btnView')
-        ]);
-        await sleep(1500);
-        await page.waitForSelector('#ContentPlaceHolder1_authsub_btnDownloadRequest', { visible: true, timeout: 60000 });
-        await page.click('#ContentPlaceHolder1_authsub_btnDownloadRequest');
-        await sleep(2500);
-        log('FDR_NEVER_COMM', 73, 'Feeder Never Communicating Report queued.');
-      }
-    }
-
-    // -------------------------------------------------------------
-    // 4. ONM COMPLAINT REPORT QUEUEING
-    // -------------------------------------------------------------
-    if (doComplaint) {
-      log('COMPLAINT', 74, 'Queuing OnM Complaint Report from /MDMS/Complaint/Reports/ComplaintReport...');
-      await page.goto('https://mdm.sbpdclinfra.in/MDMS/Complaint/Reports/ComplaintReport', { waitUntil: 'networkidle2', timeout: 45000 });
-      await page.waitForSelector('#ContentPlaceHolder1_authsub_ddlReportType', { timeout: 45000 });
-      await sleep(1000);
-      await page.select('#ContentPlaceHolder1_authsub_ddlReportType', '7');
-      await page.evaluate(() => {
-        const sel = document.getElementById('ContentPlaceHolder1_authsub_ddlReportType');
-        if (sel) sel.dispatchEvent(new Event('change', { bubbles: true }));
-      });
-      await sleep(3000);
-      await Promise.all([
-        page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 60000 }).catch(() => {}),
-        page.click('#ContentPlaceHolder1_authsub_btnDownload')
-      ]);
-      await sleep(2500);
-      log('COMPLAINT', 75, 'OnM Complaint Report queued.');
-
-      if (doNotifyDiscom) {
-        log('NOTIFY_DISCOM', 75.5, 'Queuing Notify to Discom Status Report from /MDMS/Complaint/ComplaintReport?pn=1...');
-        try {
-          await page.goto('https://mdm.sbpdclinfra.in/MDMS/Complaint/ComplaintReport?pn=1', { waitUntil: 'networkidle2', timeout: 45000 });
+        await safeQueue('CONSUMER_COMM', 25, 'Last Communication (HES-Cyan)', async () => {
+          await page.goto('https://mdm.sbpdclinfra.in/MIS/ConsumerReport?pn=2', { waitUntil: 'networkidle2', timeout: 60000 });
           await page.waitForSelector('#ContentPlaceHolder1_authsub_ddlReportType', { timeout: 45000 });
-          await sleep(1000);
-          await page.select('#ContentPlaceHolder1_authsub_ddlReportType', '19');
-          await page.evaluate(() => {
-            const sel = document.getElementById('ContentPlaceHolder1_authsub_ddlReportType');
-            if (sel) sel.dispatchEvent(new Event('change', { bubbles: true }));
-          });
-          await sleep(2500);
+          await sleep(1500);
+          await page.select('#ContentPlaceHolder1_authsub_ddlReportType', '10');
+          await page.evaluate(() => document.querySelector('#ContentPlaceHolder1_authsub_ddlReportType')?.dispatchEvent(new Event('change', { bubbles: true })));
+          await sleep(3000);
+
+          await page.waitForSelector('#ContentPlaceHolder1_authsub_ddlHES', { timeout: 45000 });
+          await page.select('#ContentPlaceHolder1_authsub_ddlHES', '4');
+          await page.evaluate(() => document.querySelector('#ContentPlaceHolder1_authsub_ddlHES')?.dispatchEvent(new Event('change', { bubbles: true })));
+          await sleep(2000);
+
           await Promise.all([
             page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 90000 }).catch(() => {}),
             page.click('#ContentPlaceHolder1_authsub_btnView')
@@ -333,10 +151,200 @@ async function runSync(options = {}) {
           await page.waitForSelector('#ContentPlaceHolder1_authsub_btnDownloadRequest', { visible: true, timeout: 90000 });
           await page.click('#ContentPlaceHolder1_authsub_btnDownloadRequest');
           await sleep(2500);
-          log('NOTIFY_DISCOM', 76, 'Notify to Discom Status Report queued successfully.');
-        } catch (e) {
-          console.error('Notify to Discom queue attempt error:', e.message);
-        }
+        });
+
+        // Last Comm Airtel
+        await safeQueue('CONSUMER_COMM', 35, 'Last Communication (HES-Airtel)', async () => {
+          await page.goto('https://mdm.sbpdclinfra.in/MIS/ConsumerReport?pn=2', { waitUntil: 'networkidle2', timeout: 60000 });
+          await page.waitForSelector('#ContentPlaceHolder1_authsub_ddlReportType', { timeout: 45000 });
+          await sleep(1500);
+          await page.select('#ContentPlaceHolder1_authsub_ddlReportType', '10');
+          await page.evaluate(() => document.querySelector('#ContentPlaceHolder1_authsub_ddlReportType')?.dispatchEvent(new Event('change', { bubbles: true })));
+          await sleep(3000);
+
+          await page.waitForSelector('#ContentPlaceHolder1_authsub_ddlHES', { timeout: 45000 });
+          await page.select('#ContentPlaceHolder1_authsub_ddlHES', '6');
+          await page.evaluate(() => document.querySelector('#ContentPlaceHolder1_authsub_ddlHES')?.dispatchEvent(new Event('change', { bubbles: true })));
+          await sleep(2000);
+
+          await Promise.all([
+            page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 90000 }).catch(() => {}),
+            page.click('#ContentPlaceHolder1_authsub_btnView')
+          ]);
+          await sleep(2000);
+          await page.waitForSelector('#ContentPlaceHolder1_authsub_btnDownloadRequest', { visible: true, timeout: 90000 });
+          await page.click('#ContentPlaceHolder1_authsub_btnDownloadRequest');
+          await sleep(2500);
+        });
+      }
+    }
+
+    // -------------------------------------------------------------
+    // 2. DT METERS QUEUEING
+    // -------------------------------------------------------------
+    if (doDT) {
+      if (doDTMaster) {
+        await safeQueue('DT_MASTER', 45, 'DT Meter Master from /MIS/DTRReport?pn=1', async () => {
+          await page.goto('https://mdm.sbpdclinfra.in/MIS/DTRReport?pn=1', { waitUntil: 'networkidle2', timeout: 60000 });
+          await page.waitForSelector('#ContentPlaceHolder1_authsub_ddlReportType', { timeout: 45000 });
+          await sleep(1000);
+
+          const currentVal = await page.$eval('#ContentPlaceHolder1_authsub_ddlReportType', el => el.value).catch(() => null);
+          if (currentVal !== '1') {
+            await page.select('#ContentPlaceHolder1_authsub_ddlReportType', '1');
+            await page.evaluate(() => document.querySelector('#ContentPlaceHolder1_authsub_ddlReportType')?.dispatchEvent(new Event('change', { bubbles: true })));
+            await sleep(2500);
+          }
+
+          await Promise.all([
+            page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 60000 }).catch(() => {}),
+            page.click('#ContentPlaceHolder1_authsub_btnView')
+          ]);
+          await sleep(2000);
+          await page.waitForSelector('#ContentPlaceHolder1_authsub_btnDownloadRequest', { visible: true, timeout: 90000 });
+          await page.click('#ContentPlaceHolder1_authsub_btnDownloadRequest');
+          await sleep(2500);
+        });
+      }
+
+      if (doDTNonComm) {
+        await safeQueue('DT_NON_COMM', 53, 'DT Non Communicating Report from /MIS/DTRReport?pn=2', async () => {
+          await page.goto('https://mdm.sbpdclinfra.in/MIS/DTRReport?pn=2', { waitUntil: 'networkidle2', timeout: 60000 });
+          await page.waitForSelector('#ContentPlaceHolder1_authsub_ddlReportType', { timeout: 45000 });
+          await sleep(1000);
+          await page.select('#ContentPlaceHolder1_authsub_ddlReportType', '11');
+          await page.evaluate(() => document.querySelector('#ContentPlaceHolder1_authsub_ddlReportType')?.dispatchEvent(new Event('change', { bubbles: true })));
+          await sleep(2000);
+          await Promise.all([
+            page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 60000 }).catch(() => {}),
+            page.click('#ContentPlaceHolder1_authsub_btnView')
+          ]);
+          await sleep(2000);
+          await page.waitForSelector('#ContentPlaceHolder1_authsub_btnDownloadRequest', { visible: true, timeout: 90000 });
+          await page.click('#ContentPlaceHolder1_authsub_btnDownloadRequest');
+          await sleep(2500);
+        });
+      }
+
+      if (doDTNeverComm) {
+        await safeQueue('DT_NEVER_COMM', 58, 'DT Never Communicating Report from /MIS/DTRReport?pn=2', async () => {
+          await page.goto('https://mdm.sbpdclinfra.in/MIS/DTRReport?pn=2', { waitUntil: 'networkidle2', timeout: 60000 });
+          await page.waitForSelector('#ContentPlaceHolder1_authsub_ddlReportType', { timeout: 45000 });
+          await sleep(1000);
+          await page.select('#ContentPlaceHolder1_authsub_ddlReportType', '12');
+          await page.evaluate(() => document.querySelector('#ContentPlaceHolder1_authsub_ddlReportType')?.dispatchEvent(new Event('change', { bubbles: true })));
+          await sleep(2000);
+          await Promise.all([
+            page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 60000 }).catch(() => {}),
+            page.click('#ContentPlaceHolder1_authsub_btnView')
+          ]);
+          await sleep(2000);
+          await page.waitForSelector('#ContentPlaceHolder1_authsub_btnDownloadRequest', { visible: true, timeout: 90000 });
+          await page.click('#ContentPlaceHolder1_authsub_btnDownloadRequest');
+          await sleep(2500);
+        });
+      }
+    }
+
+    // -------------------------------------------------------------
+    // 3. FEEDER METERS QUEUEING
+    // -------------------------------------------------------------
+    if (doFeeder) {
+      if (doFdrMaster) {
+        await safeQueue('FDR_MASTER', 63, 'Feeder Meter Master from /MIS/FeederReport?pn=1', async () => {
+          await page.goto('https://mdm.sbpdclinfra.in/MIS/FeederReport?pn=1', { waitUntil: 'networkidle2', timeout: 60000 });
+          await page.waitForSelector('#ContentPlaceHolder1_authsub_ddlReportType', { timeout: 45000 });
+          await sleep(1000);
+          await page.select('#ContentPlaceHolder1_authsub_ddlReportType', '1');
+          await page.evaluate(() => document.querySelector('#ContentPlaceHolder1_authsub_ddlReportType')?.dispatchEvent(new Event('change', { bubbles: true })));
+          await sleep(2000);
+          await Promise.all([
+            page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 60000 }).catch(() => {}),
+            page.click('#ContentPlaceHolder1_authsub_btnView')
+          ]);
+          await sleep(2000);
+          await page.waitForSelector('#ContentPlaceHolder1_authsub_btnDownloadRequest', { visible: true, timeout: 90000 });
+          await page.click('#ContentPlaceHolder1_authsub_btnDownloadRequest');
+          await sleep(2500);
+        });
+      }
+
+      if (doFdrNonComm) {
+        await safeQueue('FDR_NON_COMM', 68, 'Feeder Non Communicating Report from /MIS/FeederReport?pn=2', async () => {
+          await page.goto('https://mdm.sbpdclinfra.in/MIS/FeederReport?pn=2', { waitUntil: 'networkidle2', timeout: 60000 });
+          await page.waitForSelector('#ContentPlaceHolder1_authsub_ddlReportType', { timeout: 45000 });
+          await sleep(1000);
+          await page.select('#ContentPlaceHolder1_authsub_ddlReportType', '11');
+          await page.evaluate(() => document.querySelector('#ContentPlaceHolder1_authsub_ddlReportType')?.dispatchEvent(new Event('change', { bubbles: true })));
+          await sleep(2000);
+          await Promise.all([
+            page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 60000 }).catch(() => {}),
+            page.click('#ContentPlaceHolder1_authsub_btnView')
+          ]);
+          await sleep(2000);
+          await page.waitForSelector('#ContentPlaceHolder1_authsub_btnDownloadRequest', { visible: true, timeout: 90000 });
+          await page.click('#ContentPlaceHolder1_authsub_btnDownloadRequest');
+          await sleep(2500);
+        });
+      }
+
+      if (doFdrNeverComm) {
+        await safeQueue('FDR_NEVER_COMM', 72, 'Feeder Never Communicating Report from /MIS/FeederReport?pn=2', async () => {
+          await page.goto('https://mdm.sbpdclinfra.in/MIS/FeederReport?pn=2', { waitUntil: 'networkidle2', timeout: 60000 });
+          await page.waitForSelector('#ContentPlaceHolder1_authsub_ddlReportType', { timeout: 45000 });
+          await sleep(1000);
+          await page.select('#ContentPlaceHolder1_authsub_ddlReportType', '12');
+          await page.evaluate(() => document.querySelector('#ContentPlaceHolder1_authsub_ddlReportType')?.dispatchEvent(new Event('change', { bubbles: true })));
+          await sleep(2000);
+          await Promise.all([
+            page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 60000 }).catch(() => {}),
+            page.click('#ContentPlaceHolder1_authsub_btnView')
+          ]);
+          await sleep(2000);
+          await page.waitForSelector('#ContentPlaceHolder1_authsub_btnDownloadRequest', { visible: true, timeout: 90000 });
+          await page.click('#ContentPlaceHolder1_authsub_btnDownloadRequest');
+          await sleep(2500);
+        });
+      }
+    }
+
+    // -------------------------------------------------------------
+    // 4. ONM COMPLAINT REPORT QUEUEING
+    // -------------------------------------------------------------
+    if (doComplaint) {
+      await safeQueue('COMPLAINT', 74, 'OnM Complaint Report from /MDMS/Complaint/Reports/ComplaintReport', async () => {
+        await page.goto('https://mdm.sbpdclinfra.in/MDMS/Complaint/Reports/ComplaintReport', { waitUntil: 'networkidle2', timeout: 60000 });
+        await page.waitForSelector('#ContentPlaceHolder1_authsub_ddlReportType', { timeout: 45000 });
+        await sleep(1000);
+        await page.select('#ContentPlaceHolder1_authsub_ddlReportType', '7');
+        await page.evaluate(() => {
+          const sel = document.getElementById('ContentPlaceHolder1_authsub_ddlReportType');
+          if (sel) sel.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+        await sleep(3000);
+        await Promise.all([
+          page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 90000 }).catch(() => {}),
+          page.click('#ContentPlaceHolder1_authsub_btnDownload')
+        ]);
+        await sleep(2500);
+      });
+
+      if (doNotifyDiscom) {
+        await safeQueue('NOTIFY_DISCOM', 75.5, 'Notify to Discom Status Report from /MDMS/Complaint/ComplaintReport?pn=1', async () => {
+          await page.goto('https://mdm.sbpdclinfra.in/MDMS/Complaint/ComplaintReport?pn=1', { waitUntil: 'networkidle2', timeout: 60000 });
+          await page.waitForSelector('#ContentPlaceHolder1_authsub_ddlReportType', { timeout: 45000 });
+          await sleep(1000);
+          await page.select('#ContentPlaceHolder1_authsub_ddlReportType', '19');
+          await page.evaluate(() => {
+            const sel = document.getElementById('ContentPlaceHolder1_authsub_ddlReportType');
+            if (sel) sel.dispatchEvent(new Event('change', { bubbles: true }));
+          });
+          await sleep(2500);
+          await page.click('#ContentPlaceHolder1_authsub_btnView');
+          await page.waitForSelector('#ContentPlaceHolder1_authsub_btnDownloadRequest', { visible: true, timeout: 90000 });
+          await page.click('#ContentPlaceHolder1_authsub_btnDownloadRequest');
+          await sleep(2500);
+        });
       }
     }
 
@@ -362,6 +370,7 @@ async function runSync(options = {}) {
     if (doFdrNonComm) neededTypes.push('Feeder Non Communicating');
     if (doFdrNeverComm) neededTypes.push('Feeder Never');
     if (doComplaint) neededTypes.push('Complaint');
+    if (doNotifyDiscom) neededTypes.push('Notify To Discom');
 
     for (let attempt = 1; attempt <= 45; attempt++) {
       const qPct = 77 + Math.min(15, Math.floor(attempt * 0.35));
@@ -419,8 +428,8 @@ async function runSync(options = {}) {
         }
       }
 
-      const allDone = neededTypes.every(nt => downloadedTypes.has(nt));
-      if (allDone || (downloadedReqIds.size >= neededTypes.length && downloadedReqIds.size > 0)) {
+      const allDone = neededTypes.length > 0 && neededTypes.every(nt => downloadedTypes.has(nt));
+      if (allDone) {
         log('DOWNLOAD', 88, 'All requested reports have been triggered for download.');
         break;
       }
@@ -443,7 +452,18 @@ async function runSync(options = {}) {
     for (let w = 0; w < 60; w++) {
       await sleep(2000);
       const curFiles = fs.readdirSync(downloadDir);
-      const activeCr = curFiles.filter(f => f.endsWith('.crdownload'));
+      const activeCr = curFiles.filter(f => f.endsWith('.crdownload')).filter(f => {
+        try {
+          const st = fs.statSync(path.join(downloadDir, f));
+          if (st.size === 0 && w >= 3) {
+            fs.unlinkSync(path.join(downloadDir, f));
+            return false;
+          }
+          return true;
+        } catch (e) {
+          return false;
+        }
+      });
       if (activeCr.length === 0) {
         await sleep(2000);
         break;
@@ -478,6 +498,24 @@ async function runSync(options = {}) {
     log('REBUILD', 96, 'Executing DuckDB build pipeline to update analytics...');
     const { buildDatabase } = require('./build_database');
     await buildDatabase({ target });
+
+    // Auto-push updated analytics to Render Cloud
+    try {
+      const { execSync } = require('child_process');
+      const gitCmd = 'C:\\Users\\Dharmendra Pal Singh\\AppData\\Local\\Programs\\Git\\cmd\\git.exe';
+      if (fs.existsSync(gitCmd) && fs.existsSync(path.join(rootDir, '.git'))) {
+        log('CLOUD', 98, 'Pushing fresh analytics to Render Cloud...');
+        execSync(`"${gitCmd}" add data/*.json public/ server.js build_database.js sync_pipeline.js`, { cwd: rootDir, timeout: 30000 });
+        const gitDiff = execSync(`"${gitCmd}" diff --cached --name-only`, { cwd: rootDir, encoding: 'utf8' }).trim();
+        if (gitDiff) {
+          execSync(`"${gitCmd}" commit -m "Auto-sync analytics update ${new Date().toISOString().substring(0, 16).replace('T', ' ')}"`, { cwd: rootDir, timeout: 30000 });
+          execSync(`"${gitCmd}" push origin main`, { cwd: rootDir, timeout: 60000 });
+          log('CLOUD', 99, 'Cloud Dashboard successfully updated on Render!');
+        }
+      }
+    } catch (pushErr) {
+      console.warn('[-] Auto-push to Render notice:', pushErr.message);
+    }
 
     log('COMPLETE', 100, `Synchronization for ${target.toUpperCase()} completed successfully! Fresh portal data is active.`);
     return { success: true };

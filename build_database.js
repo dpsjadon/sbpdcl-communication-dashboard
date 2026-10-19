@@ -719,11 +719,119 @@ async function buildDatabase(options = {}) {
       }
     }
 
+    // -------------------------------------------------------------
+    // 5. MATERIALIZE LATEST COMPLAINT & TICKET CORRELATION ANALYTICS
+    // -------------------------------------------------------------
+    console.log('\n--- Materializing High-Performance Correlation & Index Structures ---');
+    try {
+      const tables = await allQuery("SELECT table_name FROM information_schema.tables WHERE table_schema = 'main'");
+      const tableNames = tables.map(t => t.table_name);
+
+      if (tableNames.includes('complaint_analytics')) {
+        console.log('Building permanent latest_complaint_analytics table...');
+        await runQuery('DROP TABLE IF EXISTS latest_complaint_analytics');
+        await runQuery(`
+          CREATE TABLE latest_complaint_analytics AS
+          WITH ranked AS (
+            SELECT 
+              msn, consumer_id, ticket_no, ticket_status, status_group, main_remarks, sub_remarks,
+              detail_remark, aging_days, aging_bucket, create_date, created_at, resolved_at,
+              consumer_total_tickets, consumer_open_tickets, is_repeat_consumer, repeat_bucket, open_ticket_bucket,
+              ROW_NUMBER() OVER (PARTITION BY msn ORDER BY created_at DESC NULLS LAST, ticket_no DESC) as rn
+            FROM complaint_analytics
+            WHERE msn IS NOT NULL AND msn != ''
+          )
+          SELECT * EXCLUDE (rn) FROM ranked WHERE rn = 1;
+        `);
+        console.log('latest_complaint_analytics materialized.');
+      }
+
+      if (tableNames.includes('smart_meter_analytics') && tableNames.includes('complaint_analytics')) {
+        console.log('Building pre-materialized non_comm_ticket_analytics table (silent meters only)...');
+        await runQuery('DROP TABLE IF EXISTS non_comm_ticket_analytics');
+        await runQuery(`
+          CREATE TABLE non_comm_ticket_analytics AS
+          SELECT 
+            s.msn, s.consumer_id, s.name, s.circle, s.division, s.subdivision, s.section,
+            s.feeder, s.dt_name, s.phase, s.make, s.duration_days, s.comm_category,
+            s.aging_bucket as comm_aging_bucket, s.is_never_comm, s.is_non_comm,
+            c.ticket_no, c.ticket_status, c.main_remarks, c.sub_remarks, c.create_date,
+            c.created_at, c.resolved_at, c.aging_days as ticket_aging_days,
+            c.aging_bucket as ticket_aging_bucket,
+            COALESCE(c.consumer_total_tickets, 0) as consumer_total_tickets,
+            COALESCE(c.consumer_open_tickets, 0) as consumer_open_tickets,
+            COALESCE(c.is_repeat_consumer, 0) as is_repeat_consumer,
+            COALESCE(c.repeat_bucket, '1 Ticket') as repeat_bucket,
+            COALESCE(c.open_ticket_bucket, '0 Open Tickets') as open_ticket_bucket,
+            CASE WHEN c.ticket_no IS NOT NULL THEN 1 ELSE 0 END as has_ticket
+          FROM smart_meter_analytics s
+          LEFT JOIN latest_complaint_analytics c ON s.msn = c.msn
+          WHERE s.is_non_comm = 1;
+        `);
+        console.log('non_comm_ticket_analytics materialized.');
+
+        // Check if ticket columns are denormalized onto smart_meter_analytics
+        const smaCols = await allQuery("DESCRIBE smart_meter_analytics");
+        const hasTicketCol = smaCols.some(c => c.column_name === 'ticket_raised');
+        if (!hasTicketCol) {
+          console.log('Denormalizing ticket fields onto smart_meter_analytics...');
+          await runQuery(`
+            CREATE TABLE smart_meter_analytics_denorm AS
+            SELECT 
+              s.*,
+              CASE WHEN c.ticket_no IS NOT NULL THEN 'YES' ELSE 'NO' END as ticket_raised,
+              COALESCE(c.ticket_status, 'No Ticket') as ticket_status,
+              COALESCE(c.ticket_no, '-') as ticket_no,
+              COALESCE(c.main_remarks, '-') as main_remarks,
+              COALESCE(c.sub_remarks, '-') as sub_remarks,
+              COALESCE(c.create_date, '-') as ticket_date,
+              COALESCE(c.aging_days, 0) as ticket_aging,
+              COALESCE(c.consumer_total_tickets, 0) as total_tickets_count,
+              COALESCE(c.consumer_open_tickets, 0) as open_tickets_count,
+              COALESCE(c.repeat_bucket, '1 Ticket') as repeat_bucket,
+              COALESCE(c.open_ticket_bucket, '0 Open Tickets') as open_ticket_bucket
+            FROM smart_meter_analytics s
+            LEFT JOIN latest_complaint_analytics c ON s.msn = c.msn;
+          `);
+          await runQuery('DROP TABLE smart_meter_analytics');
+          await runQuery('ALTER TABLE smart_meter_analytics_denorm RENAME TO smart_meter_analytics');
+          console.log('smart_meter_analytics denormalized successfully.');
+        }
+
+        // Create ART performance indexes
+        console.log('Building query acceleration indexes...');
+        await runQuery('CREATE INDEX IF NOT EXISTS idx_sma_circle ON smart_meter_analytics(circle);').catch(() => {});
+        await runQuery('CREATE INDEX IF NOT EXISTS idx_sma_division ON smart_meter_analytics(division);').catch(() => {});
+        await runQuery('CREATE INDEX IF NOT EXISTS idx_sma_msn ON smart_meter_analytics(msn);').catch(() => {});
+        await runQuery('CREATE INDEX IF NOT EXISTS idx_sma_consumer_id ON smart_meter_analytics(consumer_id);').catch(() => {});
+
+        await runQuery('CREATE INDEX IF NOT EXISTS idx_nct_circle ON non_comm_ticket_analytics(circle);').catch(() => {});
+        await runQuery('CREATE INDEX IF NOT EXISTS idx_nct_division ON non_comm_ticket_analytics(division);').catch(() => {});
+        await runQuery('CREATE INDEX IF NOT EXISTS idx_nct_comm_cat ON non_comm_ticket_analytics(comm_category);').catch(() => {});
+        await runQuery('CREATE INDEX IF NOT EXISTS idx_nct_status ON non_comm_ticket_analytics(ticket_status);').catch(() => {});
+
+        await runQuery('CREATE INDEX IF NOT EXISTS idx_cmp_circle ON complaint_analytics(circle);').catch(() => {});
+        await runQuery('CREATE INDEX IF NOT EXISTS idx_cmp_division ON complaint_analytics(division);').catch(() => {});
+        await runQuery('CREATE INDEX IF NOT EXISTS idx_cmp_status ON complaint_analytics(ticket_status);').catch(() => {});
+        console.log('Acceleration indexes verified.');
+      }
+    } catch (matErr) {
+      console.warn('Materialization notice:', matErr.message);
+    }
+
     console.log(`\nPipeline completed successfully in ${((Date.now() - startTime) / 1000).toFixed(2)}s`);
     return { success: true };
   } finally {
     try { con.close(); } catch (e) {}
-    try { db.close(); } catch (e) {}
+    await new Promise(resolve => {
+      try {
+        db.close(() => resolve());
+      } catch (e) {
+        resolve();
+      }
+    });
+    // Brief settle for OS file handle release on Windows
+    await new Promise(r => setTimeout(r, 1200));
 
     if (typeof versionedFileName !== 'undefined' && fs.existsSync(targetDbPath)) {
       try {
@@ -740,6 +848,13 @@ async function buildDatabase(options = {}) {
         fs.copyFileSync(targetDbPath, path.join(dataDir, 'sbpdcl_analytics.duckdb'));
       } catch (e) {
         // Non-blocking if locked by another reader process
+      }
+
+      try {
+        const { generateAllChurnAnalytics } = require('./generate_churn_analytics');
+        await generateAllChurnAnalytics();
+      } catch (churnErr) {
+        console.warn('Daily churn generation notice:', churnErr.message);
       }
     }
   }

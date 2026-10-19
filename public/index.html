@@ -18,348 +18,424 @@
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
 
-  <link rel="stylesheet" href="style.css">
+  <!-- html2canvas for instant high-res table snapshots -->
+  <script src="html2canvas.min.js"></script>
+
+  <link rel="stylesheet" href="style.css?v=3.0">
 </head>
 <body>
 
-  <!-- Top Navigation Bar -->
-  <header class="app-header">
-    <div class="header-left">
-      <div class="logo-badge">
-        <span class="logo-icon">⚡</span>
-      </div>
-      <div class="brand-info">
-        <div class="brand-title">
-          <h1 id="appHeaderTitle">SBPDCL Smart Meter Analytics</h1>
-          <span class="badge-status-live"><span class="pulse-dot"></span> LIVE MDMS</span>
-        </div>
-        <p class="brand-subtitle" id="appHeaderSubtitle">Consumer Smart Meter Communication &amp; Aging Executive Analytics</p>
-      </div>
-    </div>
+    <div class="app-layout">
 
-    <div class="header-right">
-      <!-- Sync Button -->
-      <button id="syncPortalBtn" class="btn btn-secondary">
-        <i data-lucide="refresh-cw" id="syncIcon"></i>
-        <span>Sync Portal Data</span>
-      </button>
-
-      <!-- Theme Toggle -->
-      <button id="themeToggleBtn" class="btn-icon" title="Toggle Light/Dark Theme">
-        <i data-lucide="sun" id="themeIcon"></i>
-      </button>
-    </div>
-  </header>
-
-  <!-- Main Container -->
-  <main class="dashboard-container">
-
-    <!-- Category Switcher Strip -->
-    <section class="category-strip card">
-      <div class="category-pills">
-        <button class="category-pill active" data-category="consumer" id="catBtnConsumer">
-          <i data-lucide="users"></i>
-          <span>Consumer Meters</span>
-          <span class="cat-count-badge" id="badgeConsumerCount">1.11M</span>
-        </button>
-        <button class="category-pill" data-category="dt" id="catBtnDT">
-          <i data-lucide="zap"></i>
-          <span>DT Meters</span>
-          <span class="cat-count-badge" id="badgeDTCount">79.3K</span>
-        </button>
-        <button class="category-pill" data-category="feeder" id="catBtnFeeder">
-          <i data-lucide="activity"></i>
-          <span>Feeder Meters</span>
-          <span class="cat-count-badge" id="badgeFeederCount">3.3K</span>
-        </button>
-        <button class="category-pill" data-category="complaint" id="catBtnComplaint">
-          <i data-lucide="clipboard-list"></i>
-          <span>O&amp;M Complaints</span>
-          <span class="cat-count-badge" id="badgeComplaintCount">113.9K</span>
-        </button>
-      </div>
-
-      <!-- Feeder Voltage & Inactive Feeder Sub-Toggle (Active only for Feeder) -->
-      <div class="feeder-voltage-toggle hidden" id="feederVoltageToggle">
-        <span class="voltage-toggle-label"><i data-lucide="gauge"></i> Voltage:</span>
-        <button class="voltage-btn active" data-voltage="ALL" id="voltBtnAll">All</button>
-        <button class="voltage-btn" data-voltage="11 KV" id="voltBtn11KV">11 KV</button>
-        <button class="voltage-btn" data-voltage="33 KV" id="voltBtn33KV">33 KV</button>
-
-        <span style="border-left: 1px solid var(--border-color); height: 16px; margin: 0 4px;"></span>
-
-        <span class="voltage-toggle-label"><i data-lucide="filter"></i> Feeders:</span>
-        <button class="inactive-toggle-btn active" data-inactive="exclude" id="btnExcludeInactive" title="Excludes 196 inactive feeders from reference file">
-          <i data-lucide="shield-check"></i> <span>Active (3,102)</span>
-        </button>
-        <button class="inactive-toggle-btn" data-inactive="include" id="btnIncludeAllFeeders" title="Include all 3,298 installed feeders">
-          <span>All (3,298)</span>
-        </button>
-        <button class="inactive-toggle-btn" data-inactive="only" id="btnInactiveOnly" title="View only 196 inactive feeders">
-          <span style="color: var(--accent-crimson);">Inactive (196)</span>
-        </button>
-      </div>
-
-      <!-- DT Inactive Sub-Toggle (Active only for DT) -->
-      <div class="feeder-voltage-toggle hidden" id="dtInactiveToggle">
-        <span class="voltage-toggle-label"><i data-lucide="filter"></i> DT Meters:</span>
-        <button class="dt-inactive-toggle-btn active" data-inactive="exclude" id="btnExcludeInactiveDT" title="Excludes 1,850 inactive DTRs from reference file">
-          <i data-lucide="shield-check"></i> <span>Active (77,461)</span>
-        </button>
-        <button class="dt-inactive-toggle-btn" data-inactive="include" id="btnIncludeAllDT" title="Include all 79,311 installed DT meters">
-          <span>All (79,311)</span>
-        </button>
-        <button class="dt-inactive-toggle-btn" data-inactive="only" id="btnInactiveOnlyDT" title="View only 1,850 inactive DTRs">
-          <span style="color: var(--accent-crimson);">Inactive (1,850)</span>
-        </button>
-      </div>
-    </section>
-
-    <!-- Global Filter Strip -->
-    <section class="filter-strip card">
-      <div class="filter-strip-header">
-        <div class="filter-title">
-          <i data-lucide="sliders-horizontal"></i>
-          <span id="filterStripTitle">Hierarchy &amp; Dimension Filters</span>
-        </div>
-        <div class="filter-actions">
-          <button id="resetFiltersBtn" class="btn-text"><i data-lucide="rotate-ccw"></i> Reset Filters</button>
-        </div>
-      </div>
-
-      <div class="filter-grid">
-        <div class="filter-group">
-          <label for="filterCircle">Circle</label>
-          <select id="filterCircle" class="form-select">
-            <option value="ALL">All Circles (SBPDCL)</option>
-          </select>
-        </div>
-
-        <div class="filter-group">
-          <label for="filterDivision">Division</label>
-          <select id="filterDivision" class="form-select">
-            <option value="ALL">All Divisions</option>
-          </select>
-        </div>
-
-        <div class="filter-group">
-          <label for="filterSection">Section</label>
-          <select id="filterSection" class="form-select">
-            <option value="ALL">All Sections</option>
-          </select>
-        </div>
-
-        <div class="filter-group">
-          <label for="filterPhase" id="lblFilterPhase">Phase</label>
-          <select id="filterPhase" class="form-select">
-            <option value="ALL">All Phases</option>
-            <option value="1 PH">1 PH (Single Phase)</option>
-            <option value="3 PH">3 PH (3-Phase Combined)</option>
-          </select>
-        </div>
-
-        <div class="filter-group">
-          <label for="filterMake">Make</label>
-          <select id="filterMake" class="form-select">
-            <option value="ALL">All Makes</option>
-          </select>
-        </div>
-
-        <div class="filter-group">
-          <label for="filterCommunication" id="lblFilterCommunication">Communication Tech</label>
-          <select id="filterCommunication" class="form-select">
-            <option value="ALL">All Technologies</option>
-            <option value="GPRS">GPRS (HES-Airtel)</option>
-            <option value="RF">RF (HES-Cyan)</option>
-          </select>
-        </div>
-
-        <div class="filter-group">
-          <label for="filterStatus">Communication Status</label>
-          <select id="filterStatus" class="form-select">
-            <option value="ALL">All Meters (Installed Base)</option>
-            <option value="ALL_NON_COMM">Non-Communicating</option>
-            <option value="3-7D">3 – 7 Days</option>
-            <option value=">7D">&gt; 7 Days</option>
-            <option value="COMM_LTE_3D">Communicating</option>
-            <option value="NEVER">Never Communicated</option>
-          </select>
-        </div>
-
-        <div class="filter-group">
-          <label for="filterAging">Aging Bucket</label>
-          <select id="filterAging" class="form-select">
-            <option value="ALL">All Intervals</option>
-            <option value="<= 3 Days">&le; 3 Days (Comm)</option>
-            <option value="4 - 7 Days">4 - 7 Days</option>
-            <option value="8 - 15 Days">8 - 15 Days</option>
-            <option value="16 - 30 Days">16 - 30 Days</option>
-            <option value="31 - 60 Days">31 - 60 Days</option>
-            <option value="61 - 90 Days">61 - 90 Days</option>
-            <option value="91 - 180 Days">91 - 180 Days</option>
-            <option value="> 180 Days">&gt; 180 Days</option>
-            <option value="Never Communicated">Never Communicated</option>
-          </select>
-        </div>
-      </div>
-    </section>
-
-    <!-- Executive KPI Cards Grid (7 Core Metrics in Single Row) -->
-    <section class="kpi-grid">
-      <!-- KPI 1: Total Installation -->
-      <div class="kpi-card card">
-        <div class="kpi-header">
-          <span class="kpi-label">Total Installation</span>
-          <div class="kpi-icon-wrap icon-blue">
-            <i data-lucide="gauge"></i>
+    <!-- ====================================================================
+         1. MODERN COLLAPSIBLE SIDEBAR
+         ==================================================================== -->
+    <aside class="app-sidebar" id="appSidebar">
+      
+      <!-- Brand Header -->
+      <div class="sidebar-header">
+        <div class="sidebar-brand">
+          <div class="sidebar-brand-logo">⚡</div>
+          <div class="sidebar-brand-text">
+            <span class="sidebar-brand-title">SBPDCL</span>
+            <span class="sidebar-brand-sub">Smart Meter Analytics</span>
           </div>
         </div>
-        <div class="kpi-value-wrap">
-          <div class="kpi-value" id="kpiTotalInstalled">--</div>
-          <span class="kpi-subtext" id="kpiSubtextTotal">Consumer Smart Meters</span>
-        </div>
-        <div class="kpi-footer">
-          <span class="pill pill-blue"><i data-lucide="check-circle-2"></i> Installed Base</span>
-        </div>
+        <span class="badge-status-live" title="Live MDMS Stream Connection">
+          <span class="pulse-dot"></span>
+          <span class="badge-lbl">LIVE</span>
+        </span>
       </div>
 
-      <!-- KPI 2: Communicating -->
-      <div class="kpi-card card">
-        <div class="kpi-header">
-          <span class="kpi-label">Communicating</span>
-          <div class="kpi-icon-wrap icon-emerald">
-            <i data-lucide="radio"></i>
+      <!-- Scrollable Sidebar Body -->
+      <div class="sidebar-body">
+        
+        <!-- Section 1: Asset Base / Category Switcher -->
+        <div class="sidebar-section">
+          <div class="sidebar-section-title">
+            <span>Asset Domain</span>
+            <i data-lucide="layers" style="width: 12px; height: 12px; opacity: 0.6;"></i>
+          </div>
+          <div class="sidebar-nav-list" id="categoryNavList">
+            <button class="sidebar-nav-item category-pill active" data-category="consumer" id="catBtnConsumer" data-tooltip="Consumer Smart Meters (1.11M)">
+              <i data-lucide="users"></i>
+              <span class="nav-text">Consumer Meters</span>
+              <span class="nav-pill-count" id="badgeConsumerCount">1.11M</span>
+            </button>
+            
+            <button class="sidebar-nav-item category-pill" data-category="dt" id="catBtnDT" data-tooltip="Distribution Transformer Meters (79.3K)">
+              <i data-lucide="zap"></i>
+              <span class="nav-text">DT Meters</span>
+              <span class="nav-pill-count" id="badgeDTCount">79.3K</span>
+            </button>
+
+            <button class="sidebar-nav-item category-pill" data-category="feeder" id="catBtnFeeder" data-tooltip="11kV & 33kV Feeder Meters (3.3K)">
+              <i data-lucide="activity"></i>
+              <span class="nav-text">Feeder Meters</span>
+              <span class="nav-pill-count" id="badgeFeederCount">3.3K</span>
+            </button>
+
+            <button class="sidebar-nav-item category-pill" data-category="complaint" id="catBtnComplaint" data-tooltip="O&M Complaint & Notify Tickets (113.9K)">
+              <i data-lucide="clipboard-list"></i>
+              <span class="nav-text">O&M Complaints</span>
+              <span class="nav-pill-count" id="badgeComplaintCount">113.9K</span>
+            </button>
+          </div>
+
+          <!-- Feeder Voltage & Inactive Sub-Controls -->
+          <div class="sidebar-sub-controls hidden" id="feederVoltageToggle">
+            <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted);">
+              <span><i data-lucide="gauge"></i> Voltage:</span>
+              <div style="display: flex; gap: 4px;">
+                <button class="voltage-btn active btn btn-xs" data-voltage="ALL" id="voltBtnAll">All</button>
+                <button class="voltage-btn btn btn-xs" data-voltage="11 KV" id="voltBtn11KV">11 KV</button>
+                <button class="voltage-btn btn btn-xs" data-voltage="33 KV" id="voltBtn33KV">33 KV</button>
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted); margin-top: 4px;">
+              <span><i data-lucide="filter"></i> Feeders:</span>
+              <div style="display: flex; gap: 3px;">
+                <button class="inactive-toggle-btn active btn btn-xs" data-inactive="exclude" id="btnExcludeInactive">Active</button>
+                <button class="inactive-toggle-btn btn btn-xs" data-inactive="include" id="btnIncludeAllFeeders">All</button>
+                <button class="inactive-toggle-btn btn btn-xs" data-inactive="only" id="btnInactiveOnly" style="color: var(--accent-crimson);">Inactive</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- DT Inactive Sub-Controls -->
+          <div class="sidebar-sub-controls hidden" id="dtInactiveToggle">
+            <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted);">
+              <span><i data-lucide="filter"></i> DTR Base:</span>
+              <div style="display: flex; gap: 3px;">
+                <button class="dt-inactive-toggle-btn active btn btn-xs" data-inactive="exclude" id="btnExcludeInactiveDT">Active</button>
+                <button class="dt-inactive-toggle-btn btn btn-xs" data-inactive="include" id="btnIncludeAllDT">All</button>
+                <button class="dt-inactive-toggle-btn btn btn-xs" data-inactive="only" id="btnInactiveOnlyDT" style="color: var(--accent-crimson);">Inactive</button>
+              </div>
+            </div>
           </div>
         </div>
-        <div class="kpi-value-wrap">
-          <div class="kpi-value text-emerald" id="kpiTotalComm">--</div>
-          <span class="kpi-subtext" id="kpiSubtextComm">Active within 3 days</span>
+
+        <!-- Section 2: Operational Analytics Modules -->
+        <div class="sidebar-section">
+          <div class="sidebar-section-title">
+            <span>Analytics Views</span>
+            <i data-lucide="layout-grid" style="width: 12px; height: 12px; opacity: 0.6;"></i>
+          </div>
+          <div class="sidebar-nav-list" id="moduleNavList">
+            <!-- 1. Daily Churn & Trend (Active default) -->
+            <button class="sidebar-nav-item nav-tab active" data-tab="tab-daily-churn" id="navTabDailyChurn" data-tooltip="Daily Churn, Recovery & 10-Day Historical Trend">
+              <i data-lucide="trending-up"></i>
+              <span class="nav-text">Daily Churn & Trend</span>
+              <span class="nav-tag-live">Live</span>
+            </button>
+
+            <!-- 2. Geographic Hierarchy (Unified Circle, Division, Section) -->
+            <button class="sidebar-nav-item nav-tab" data-tab="tab-circle" id="navTabHierarchy" data-tooltip="Geographic Hierarchy (Circle, Division, Section)">
+              <i data-lucide="map-pin"></i>
+              <span class="nav-text">Geographic Hierarchy</span>
+            </button>
+
+            <!-- 3. Technical Dimensions (Phase, Make, Tech, Aging) -->
+            <button class="sidebar-nav-item nav-tab" data-tab="tab-dimensions" id="navTabDimensions" data-tooltip="Technical Dimensions (Phase, Make, Tech, Aging)">
+              <i data-lucide="cpu"></i>
+              <span class="nav-text">Technical Dimensions</span>
+            </button>
+
+            <!-- 4. Ticket Correlation -->
+            <button class="sidebar-nav-item nav-tab" data-tab="tab-correlation" id="navTabCorrelation" data-tooltip="O&M Ticket Correlation & Silent Meter Backlog">
+              <i data-lucide="link-2"></i>
+              <span class="nav-text">Ticket Correlation</span>
+            </button>
+
+            <!-- 5. Consumer Explorer -->
+            <button class="sidebar-nav-item nav-tab" data-tab="tab-meters" id="navTabMeters" data-tooltip="Consumer Explorer & Meter Record Search">
+              <i data-lucide="list-filter"></i>
+              <span class="nav-text">Consumer Explorer</span>
+            </button>
+
+            <!-- 6. Executive Pulse Overview -->
+            <button class="sidebar-nav-item nav-tab" data-tab="tab-overview" id="navTabOverview" data-tooltip="Executive Pulse & Benchmark Matrix">
+              <i data-lucide="layout-dashboard"></i>
+              <span class="nav-text">Executive Pulse</span>
+            </button>
+
+            <!-- 7. Date-wise Analytics (O&M only) -->
+            <button class="sidebar-nav-item nav-tab hidden" data-tab="tab-datewise" id="navTabDateWise" data-tooltip="Date-wise Resolution & Efficiency">
+              <i data-lucide="calendar"></i>
+              <span class="nav-text">Date-wise Analytics</span>
+            </button>
+
+            <!-- Virtual hidden tab hooks for backwards compatibility -->
+            <button class="nav-tab hidden" data-tab="tab-division" id="navTabDivision" style="display: none;"></button>
+            <button class="nav-tab hidden" data-tab="tab-section" id="navTabSection" style="display: none;"></button>
+            <button class="nav-tab hidden" data-tab="tab-aging" id="navTabAging" style="display: none;"></button>
+          </div>
         </div>
-        <div class="kpi-footer">
-          <span class="pill pill-emerald" id="kpiCommRatePill">--% Communication</span>
-        </div>
+
       </div>
 
-      <!-- KPI 3: Non-Communicating -->
-      <div class="kpi-card card">
-        <div class="kpi-header">
-          <span class="kpi-label">Non-Communicating</span>
-          <div class="kpi-icon-wrap icon-amber">
-            <i data-lucide="alert-triangle"></i>
-          </div>
-        </div>
-        <div class="kpi-value-wrap">
-          <div class="kpi-value text-amber" id="kpiTotalNonComm">--</div>
-          <div class="kpi-split-details" id="kpiNonCommSplit">
-            <span>Airtel: --</span> • <span>Cyan: --</span>
-          </div>
-        </div>
-        <div class="kpi-footer">
-          <span class="pill pill-amber" id="kpiNonCommPctPill">--% Non-Comm</span>
+      <!-- Sidebar Footer -->
+      <div class="sidebar-footer">
+        <button class="sidebar-btn-action" id="syncPortalBtn" title="Launch Multi-Report Downloader Hub">
+          <i data-lucide="refresh-cw" id="syncIcon"></i>
+          <span class="footer-btn-text">Sync Portal Data</span>
+        </button>
+
+        <div class="sidebar-footer-row">
+          <button class="btn-icon" id="themeToggleBtn" title="Toggle Theme (Dark / Light)">
+            <i data-lucide="sun" id="themeIcon"></i>
+          </button>
+          <button class="btn-icon" id="sidebarCollapseBtn" title="Collapse / Expand Sidebar">
+            <i data-lucide="panel-left-close" id="sidebarCollapseIcon"></i>
+          </button>
         </div>
       </div>
+    </aside>
 
-      <!-- KPI 4: % Communication -->
-      <div class="kpi-card card">
-        <div class="kpi-header">
-          <span class="kpi-label">% Communication</span>
-          <div class="kpi-icon-wrap icon-emerald">
-            <i data-lucide="activity"></i>
+    <!-- ====================================================================
+         2. MAIN VIEWPORT & DASHBOARD CONTENT
+         ==================================================================== -->
+    <div class="app-main">
+      
+      <!-- Top Utility Bar -->
+      <header class="app-topbar">
+        <div class="topbar-left">
+          <button class="topbar-toggle-btn" id="sidebarToggleBtnTop" title="Toggle Sidebar (Expand/Collapse)">
+            <i data-lucide="menu"></i>
+          </button>
+          <div class="topbar-breadcrumb">
+            <h2 class="topbar-title" id="appHeaderTitle">
+              <span id="breadcrumbAsset">Consumer Meters</span>
+              <span style="opacity: 0.35;">/</span>
+              <span id="breadcrumbModule" style="color: var(--accent-cyan);">Daily Churn &amp; Trend</span>
+            </h2>
+            <p class="topbar-subtitle" id="appHeaderSubtitle">Comparing Current Sync with Yesterday's Final Sync across aging segments</p>
           </div>
         </div>
-        <div class="kpi-value-wrap">
-          <div class="kpi-value text-emerald" id="kpiCommRate">--%</div>
-          <div class="progress-bar-container">
-            <div class="progress-bar-fill" id="kpiCommRateBar" style="width: 0%;"></div>
-          </div>
-        </div>
-        <div class="kpi-footer">
-          <span class="pill pill-emerald"><i data-lucide="shield-check"></i> Target: &ge;95.0%</span>
-        </div>
-      </div>
 
-      <!-- KPI 5: 3 - 7 Days -->
-      <div class="kpi-card card">
-        <div class="kpi-header">
-          <span class="kpi-label">3 – 7 Days</span>
-          <div class="kpi-icon-wrap icon-cyan">
-            <i data-lucide="calendar"></i>
-          </div>
-        </div>
-        <div class="kpi-value-wrap">
-          <div class="kpi-value text-cyan" id="kpiNonComm4_7D">--</div>
-          <span class="kpi-subtext">Recent silent meters</span>
-        </div>
-        <div class="kpi-footer">
-          <span class="pill pill-cyan"><i data-lucide="clock"></i> 3–7 Days</span>
-        </div>
-      </div>
+        <div class="topbar-right">
+          <!-- Quick Filter Toggle Button -->
+          <button class="btn btn-sm btn-secondary" id="btnToggleFilters" title="Toggle Hierarchy & Dimension Slicers">
+            <i data-lucide="sliders-horizontal"></i>
+            <span>Filters</span>
+          </button>
 
-      <!-- KPI 6: > 7 Days -->
-      <div class="kpi-card card">
-        <div class="kpi-header">
-          <span class="kpi-label">&gt; 7 Days</span>
-          <div class="kpi-icon-wrap icon-crimson">
-            <i data-lucide="alert-octagon"></i>
-          </div>
+          <!-- Direct Portal Sync Button -->
+          <button class="btn btn-sm btn-primary" id="topbarSyncBtn" onclick="document.getElementById('syncPortalBtn').click()">
+            <i data-lucide="refresh-cw"></i>
+            <span>Sync Hub</span>
+          </button>
         </div>
-        <div class="kpi-value-wrap">
-          <div class="kpi-value text-crimson" id="kpiNonCommGt7D">--</div>
-          <span class="kpi-subtext">Prolonged silent meters</span>
-        </div>
-        <div class="kpi-footer">
-          <span class="pill pill-crimson"><i data-lucide="alert-circle"></i> Critical Focus</span>
-        </div>
-      </div>
+      </header>
 
-      <!-- KPI 7: Never Communicated -->
-      <div class="kpi-card card interactive-kpi" id="cardNeverComm" title="Click to slice by Never Communicated meters">
-        <div class="kpi-header">
-          <span class="kpi-label">Never Communicated</span>
-          <div class="kpi-icon-wrap icon-rose">
-            <i data-lucide="wifi-off"></i>
-          </div>
-        </div>
-        <div class="kpi-value-wrap">
-          <div class="kpi-value text-rose" id="kpiNeverComm">--</div>
-          <span class="kpi-subtext">Zero communication recorded</span>
-        </div>
-        <div class="kpi-footer">
-          <span class="pill pill-rose" id="kpiNeverCommPill"><i data-lucide="wifi-off"></i> No Comm History</span>
-        </div>
-      </div>
-    </section>
+      <!-- Main Scrollable Dashboard Content -->
+      <main class="dashboard-content">
 
-    <!-- Tab Navigation Bar -->
-    <nav class="nav-tabs-bar">
-      <button class="nav-tab hidden" data-tab="tab-overview" id="navTabOverview">
-        <i data-lucide="layout-dashboard"></i> Overview
-      </button>
-      <button class="nav-tab hidden" data-tab="tab-correlation" id="navTabCorrelation">
-        <i data-lucide="link-2"></i> Ticket Correlation
-      </button>
-      <button class="nav-tab hidden" data-tab="tab-datewise" id="navTabDateWise">
-        <i data-lucide="calendar"></i> Date-wise Analytics
-      </button>
-      <button class="nav-tab active" data-tab="tab-circle" id="navTabCircle">
-        <i data-lucide="map-pin"></i> Circle Analysis
-      </button>
-      <button class="nav-tab" data-tab="tab-division" id="navTabDivision">
-        <i data-lucide="git-branch"></i> Division Breakdown
-      </button>
-      <button class="nav-tab" data-tab="tab-section" id="navTabSection">
-        <i data-lucide="layers"></i> Section Drilldown
-      </button>
-      <button class="nav-tab" data-tab="tab-dimensions" id="navTabDimensions">
-        <i data-lucide="cpu"></i> Phase &amp; Make
-      </button>
-      <button class="nav-tab" data-tab="tab-aging" id="navTabAging">
-        <i data-lucide="hourglass"></i> Aging &amp; Technology
-      </button>
-      <button class="nav-tab" data-tab="tab-meters" id="navTabMeters">
-        <i data-lucide="list-filter"></i> Consumer Explorer
-      </button>
-    </nav>
+        <!-- Compact Smart Filter Strip -->
+        <section class="smart-filter-card card" id="smartFilterCard">
+          <div class="smart-filter-main-row">
+            <div class="smart-filter-controls">
+              <!-- Circle Filter -->
+              <div style="min-width: 160px;">
+                <select id="filterCircle" class="form-select form-select-sm">
+                  <option value="ALL">All Circles (SBPDCL)</option>
+                </select>
+              </div>
+
+              <!-- Division Filter -->
+              <div style="min-width: 160px;">
+                <select id="filterDivision" class="form-select form-select-sm">
+                  <option value="ALL">All Divisions</option>
+                </select>
+              </div>
+
+              <!-- Section Filter -->
+              <div style="min-width: 160px;">
+                <select id="filterSection" class="form-select form-select-sm">
+                  <option value="ALL">All Sections</option>
+                </select>
+              </div>
+
+              <!-- Communication Status -->
+              <div style="min-width: 170px;">
+                <select id="filterStatus" class="form-select form-select-sm">
+                  <option value="ALL">All Statuses (Installed Base)</option>
+                  <option value="ALL_NON_COMM">Non-Communicating (&gt;3D)</option>
+                  <option value="3-7D">3 – 7 Days</option>
+                  <option value=">7D">&gt; 7 Days</option>
+                  <option value="COMM_LTE_3D">Communicating (&le;3 Days)</option>
+                  <option value="NEVER">Never Communicated</option>
+                </select>
+              </div>
+
+              <!-- Advanced Toggle -->
+              <button class="filter-badge-toggle" id="btnToggleAdvancedFilters" type="button">
+                <i data-lucide="sliders"></i> <span>More Slicers</span> <i data-lucide="chevron-down" id="advFilterChevron"></i>
+              </button>
+
+              <!-- Reset Filters -->
+              <button id="resetFiltersBtn" class="btn btn-sm btn-outline">
+                <i data-lucide="rotate-ccw"></i> Reset
+              </button>
+            </div>
+          </div>
+
+          <!-- Advanced Filters Drawer -->
+          <div class="smart-filter-advanced hidden" id="smartFilterAdvanced">
+            <div class="filter-group">
+              <label for="filterPhase" id="lblFilterPhase">Phase</label>
+              <select id="filterPhase" class="form-select form-select-sm">
+                <option value="ALL">All Phases</option>
+                <option value="1 PH">1 PH (Single Phase)</option>
+                <option value="3 PH">3 PH (3-Phase Combined)</option>
+              </select>
+            </div>
+
+            <div class="filter-group">
+              <label for="filterMake">Make</label>
+              <select id="filterMake" class="form-select form-select-sm">
+                <option value="ALL">All Makes</option>
+              </select>
+            </div>
+
+            <div class="filter-group">
+              <label for="filterCommunication" id="lblFilterCommunication">Communication Tech</label>
+              <select id="filterCommunication" class="form-select form-select-sm">
+                <option value="ALL">All Technologies</option>
+                <option value="GPRS">GPRS (HES-Airtel)</option>
+                <option value="RF">RF (HES-Cyan)</option>
+              </select>
+            </div>
+
+            <div class="filter-group">
+              <label for="filterAging">Aging Bucket</label>
+              <select id="filterAging" class="form-select form-select-sm">
+                <option value="ALL">All Intervals</option>
+                <option value="<= 3 Days">&le; 3 Days (Comm)</option>
+                <option value="4 - 7 Days">4 - 7 Days</option>
+                <option value="8 - 15 Days">8 - 15 Days</option>
+                <option value="16 - 30 Days">16 - 30 Days</option>
+                <option value="31 - 60 Days">31 - 60 Days</option>
+                <option value="61 - 90 Days">61 - 90 Days</option>
+                <option value="91 - 180 Days">91 - 180 Days</option>
+                <option value="> 180 Days">&gt; 180 Days</option>
+                <option value="Never Communicated">Never Communicated</option>
+              </select>
+            </div>
+          </div>
+        </section>
+
+        <!-- Contextual Fleet KPI Grid (Displayed for Hierarchy, Dimensions, Explorer, Overview) -->
+        <section class="kpi-grid" id="fleetKpiStrip" style="display: none;">
+          <!-- KPI 1: Total Installation -->
+          <div class="kpi-card card">
+            <div class="kpi-header">
+              <span class="kpi-label">Total Installation</span>
+              <div class="kpi-icon-wrap icon-blue"><i data-lucide="gauge"></i></div>
+            </div>
+            <div class="kpi-value-wrap">
+              <div class="kpi-value" id="kpiTotalInstalled">--</div>
+              <span class="kpi-subtext" id="kpiSubtextTotal">Consumer Smart Meters</span>
+            </div>
+            <div class="kpi-footer">
+              <span class="pill pill-blue"><i data-lucide="check-circle-2"></i> Installed Base</span>
+            </div>
+          </div>
+
+          <!-- KPI 2: Communicating -->
+          <div class="kpi-card card">
+            <div class="kpi-header">
+              <span class="kpi-label">Communicating</span>
+              <div class="kpi-icon-wrap icon-emerald"><i data-lucide="radio"></i></div>
+            </div>
+            <div class="kpi-value-wrap">
+              <div class="kpi-value text-emerald" id="kpiTotalComm">--</div>
+              <span class="kpi-subtext" id="kpiSubtextComm">Active within 3 days</span>
+            </div>
+            <div class="kpi-footer">
+              <span class="pill pill-emerald" id="kpiCommRatePill">--% Communication</span>
+            </div>
+          </div>
+
+          <!-- KPI 3: Non-Communicating -->
+          <div class="kpi-card card">
+            <div class="kpi-header">
+              <span class="kpi-label">Non-Communicating</span>
+              <div class="kpi-icon-wrap icon-amber"><i data-lucide="alert-triangle"></i></div>
+            </div>
+            <div class="kpi-value-wrap">
+              <div class="kpi-value text-amber" id="kpiTotalNonComm">--</div>
+              <div class="kpi-split-details" id="kpiNonCommSplit">
+                <span>Airtel: --</span> • <span>Cyan: --</span>
+              </div>
+            </div>
+            <div class="kpi-footer">
+              <span class="pill pill-amber" id="kpiNonCommPctPill">--% Non-Comm</span>
+            </div>
+          </div>
+
+          <!-- KPI 4: % Communication -->
+          <div class="kpi-card card">
+            <div class="kpi-header">
+              <span class="kpi-label">% Communication</span>
+              <div class="kpi-icon-wrap icon-emerald"><i data-lucide="activity"></i></div>
+            </div>
+            <div class="kpi-value-wrap">
+              <div class="kpi-value text-emerald" id="kpiCommRate">--%</div>
+              <div class="progress-bar-container">
+                <div class="progress-bar-fill" id="kpiCommRateBar" style="width: 0%;"></div>
+              </div>
+            </div>
+            <div class="kpi-footer">
+              <span class="pill pill-emerald"><i data-lucide="shield-check"></i> Target: &ge;95.0%</span>
+            </div>
+          </div>
+
+          <!-- KPI 5: 3 - 7 Days -->
+          <div class="kpi-card card">
+            <div class="kpi-header">
+              <span class="kpi-label">3 – 7 Days</span>
+              <div class="kpi-icon-wrap icon-cyan"><i data-lucide="calendar"></i></div>
+            </div>
+            <div class="kpi-value-wrap">
+              <div class="kpi-value text-cyan" id="kpiNonComm4_7D">--</div>
+              <span class="kpi-subtext">Recent silent meters</span>
+            </div>
+            <div class="kpi-footer">
+              <span class="pill pill-cyan"><i data-lucide="clock"></i> 3–7 Days</span>
+            </div>
+          </div>
+
+          <!-- KPI 6: > 7 Days -->
+          <div class="kpi-card card">
+            <div class="kpi-header">
+              <span class="kpi-label">&gt; 7 Days</span>
+              <div class="kpi-icon-wrap icon-crimson"><i data-lucide="alert-octagon"></i></div>
+            </div>
+            <div class="kpi-value-wrap">
+              <div class="kpi-value text-crimson" id="kpiNonCommGt7D">--</div>
+              <span class="kpi-subtext">Prolonged silent meters</span>
+            </div>
+            <div class="kpi-footer">
+              <span class="pill pill-crimson"><i data-lucide="alert-circle"></i> Critical Focus</span>
+            </div>
+          </div>
+
+          <!-- KPI 7: Never Communicated -->
+          <div class="kpi-card card interactive-kpi" id="cardNeverComm" title="Click to slice by Never Communicated meters">
+            <div class="kpi-header">
+              <span class="kpi-label">Never Communicated</span>
+              <div class="kpi-icon-wrap icon-rose"><i data-lucide="wifi-off"></i></div>
+            </div>
+            <div class="kpi-value-wrap">
+              <div class="kpi-value text-rose" id="kpiNeverComm">--</div>
+              <span class="kpi-subtext">Zero communication recorded</span>
+            </div>
+            <div class="kpi-footer">
+              <span class="pill pill-rose" id="kpiNeverCommPill"><i data-lucide="wifi-off"></i> No Comm History</span>
+            </div>
+          </div>
+        </section>
 
     <!-- TAB 1: EXECUTIVE OVERVIEW -->
     <div id="tab-overview" class="tab-pane">
@@ -859,15 +935,18 @@
       </div>
 
       <!-- Table 4: Circle Performance Benchmark Table (Screenshot 4 Format) -->
-      <div class="table-card card" style="margin-bottom: 20px;">
+      <div class="table-card card" id="corrCircleCard" style="margin-bottom: 20px;">
         <div class="table-header-flex">
           <div>
             <h3>Circle Performance Benchmark</h3>
             <p>Comprehensive ticket coverage, unattended action gap, and field status across all 7 Circles (Click row to filter)</p>
           </div>
-          <div class="table-actions">
+          <div class="table-actions" style="display: flex; gap: 8px; align-items: center;">
             <button class="btn btn-sm btn-outline" onclick="exportTableToCSV('corrCircleTable', 'circle_ticket_benchmark.csv')">
               <i data-lucide="download"></i> Export Circle CSV
+            </button>
+            <button class="btn btn-sm btn-snap" onclick="window.copyTableScreenshot('corrCircleCard', 'SBPDCL_Circle_Ticket_Benchmark', this)" title="Copy high-res image to clipboard (Ctrl+V) for management sharing">
+              <i data-lucide="camera"></i> <span>Copy Image (Ctrl+V)</span>
             </button>
           </div>
         </div>
@@ -894,15 +973,18 @@
       </div>
 
       <!-- Table 5: Division Breakdown & Action Gap Table -->
-      <div class="table-card card" style="margin-bottom: 20px;">
+      <div class="table-card card" id="corrDivisionCard" style="margin-bottom: 20px;">
         <div class="table-header-flex">
           <div>
             <h3>Division Breakdown &amp; Action Gap Table</h3>
             <p>Division-level drilldown across all 26 Divisions with ticket coverage and field action queue (Click row to filter)</p>
           </div>
-          <div class="table-actions">
+          <div class="table-actions" style="display: flex; gap: 8px; align-items: center;">
             <button class="btn btn-sm btn-outline" onclick="exportTableToCSV('corrDivisionTable', 'division_ticket_correlation.csv')">
               <i data-lucide="download"></i> Export Division CSV
+            </button>
+            <button class="btn btn-sm btn-snap" onclick="window.copyTableScreenshot('corrDivisionCard', 'SBPDCL_Division_Ticket_Correlation', this)" title="Copy high-res image to clipboard (Ctrl+V) for management sharing">
+              <i data-lucide="camera"></i> <span>Copy Image (Ctrl+V)</span>
             </button>
           </div>
         </div>
@@ -966,7 +1048,19 @@
     </div>
 
     <!-- TAB 2: CIRCLE ANALYSIS -->
-    <div id="tab-circle" class="tab-pane active">
+    <div id="tab-circle" class="tab-pane">
+      <!-- Geographic Hierarchy Switcher -->
+      <div class="subview-pills">
+        <button class="subview-pill-btn active" onclick="window.switchHierarchyView('circle')">
+          <i data-lucide="map-pin"></i> <span>Circle Analysis (7 Circles)</span>
+        </button>
+        <button class="subview-pill-btn" onclick="window.switchHierarchyView('division')">
+          <i data-lucide="git-branch"></i> <span>Division Breakdown (26 Divisions)</span>
+        </button>
+        <button class="subview-pill-btn" onclick="window.switchHierarchyView('section')">
+          <i data-lucide="layers"></i> <span>Section Drilldown</span>
+        </button>
+      </div>
       <div class="table-card card">
         <div class="table-header-flex">
           <div>
@@ -976,6 +1070,9 @@
           <div class="table-actions">
             <button class="btn btn-sm btn-outline" onclick="exportTableToCSV('circleTable', 'circle_analysis.csv')">
               <i data-lucide="download"></i> Export CSV
+            </button>
+            <button class="btn btn-sm btn-snap" onclick="window.copyTableScreenshot('tab-circle', 'SBPDCL_Circle_Performance_Summary', this)" title="Copy high-res image to clipboard (Ctrl+V) for management sharing">
+              <i data-lucide="camera"></i> <span>Copy Table Image</span>
             </button>
           </div>
         </div>
@@ -1003,6 +1100,18 @@
 
     <!-- TAB 3: DIVISION BREAKDOWN -->
     <div id="tab-division" class="tab-pane">
+      <!-- Geographic Hierarchy Switcher -->
+      <div class="subview-pills">
+        <button class="subview-pill-btn" onclick="window.switchHierarchyView('circle')">
+          <i data-lucide="map-pin"></i> <span>Circle Analysis (7 Circles)</span>
+        </button>
+        <button class="subview-pill-btn active" onclick="window.switchHierarchyView('division')">
+          <i data-lucide="git-branch"></i> <span>Division Breakdown (26 Divisions)</span>
+        </button>
+        <button class="subview-pill-btn" onclick="window.switchHierarchyView('section')">
+          <i data-lucide="layers"></i> <span>Section Drilldown</span>
+        </button>
+      </div>
       <div class="table-card card">
         <div class="table-header-flex">
           <div>
@@ -1012,6 +1121,9 @@
           <div class="table-actions">
             <button class="btn btn-sm btn-outline" onclick="exportTableToCSV('divisionTable', 'division_analysis.csv')">
               <i data-lucide="download"></i> Export CSV
+            </button>
+            <button class="btn btn-sm btn-snap" onclick="window.copyTableScreenshot('tab-division', 'SBPDCL_Division_Breakdown_Summary', this)" title="Copy high-res image to clipboard (Ctrl+V) for management sharing">
+              <i data-lucide="camera"></i> <span>Copy Table Image</span>
             </button>
           </div>
         </div>
@@ -1040,6 +1152,18 @@
 
     <!-- TAB 4: SECTION DRILLDOWN -->
     <div id="tab-section" class="tab-pane">
+      <!-- Geographic Hierarchy Switcher -->
+      <div class="subview-pills">
+        <button class="subview-pill-btn" onclick="window.switchHierarchyView('circle')">
+          <i data-lucide="map-pin"></i> <span>Circle Analysis (7 Circles)</span>
+        </button>
+        <button class="subview-pill-btn" onclick="window.switchHierarchyView('division')">
+          <i data-lucide="git-branch"></i> <span>Division Breakdown (26 Divisions)</span>
+        </button>
+        <button class="subview-pill-btn active" onclick="window.switchHierarchyView('section')">
+          <i data-lucide="layers"></i> <span>Section Drilldown</span>
+        </button>
+      </div>
       <div class="table-card card">
         <div class="table-header-flex">
           <div>
@@ -1049,6 +1173,9 @@
           <div class="table-actions">
             <button class="btn btn-sm btn-outline" onclick="exportTableToCSV('sectionTable', 'section_analysis.csv')">
               <i data-lucide="download"></i> Export CSV
+            </button>
+            <button class="btn btn-sm btn-snap" onclick="window.copyTableScreenshot('tab-section', 'SBPDCL_Section_Drilldown_Summary', this)" title="Copy high-res image to clipboard (Ctrl+V) for management sharing">
+              <i data-lucide="camera"></i> <span>Copy Table Image</span>
             </button>
           </div>
         </div>
@@ -1077,6 +1204,15 @@
 
     <!-- TAB 5: PHASE / CAPACITY / VOLTAGE & MAKE -->
     <div id="tab-dimensions" class="tab-pane">
+      <!-- Technical Dimensions Switcher -->
+      <div class="subview-pills">
+        <button class="subview-pill-btn active" onclick="window.switchTechDimensionsView('dimensions')">
+          <i data-lucide="cpu"></i> <span>Phase &amp; Manufacturer Make</span>
+        </button>
+        <button class="subview-pill-btn" onclick="window.switchTechDimensionsView('aging')">
+          <i data-lucide="hourglass"></i> <span>Technology &amp; Aging Intervals</span>
+        </button>
+      </div>
       <div class="table-dual-grid">
         <!-- Dimension Table -->
         <div class="table-card card">
@@ -1134,6 +1270,15 @@
 
     <!-- TAB 6: AGING & TECHNOLOGY / ATTRIBUTES -->
     <div id="tab-aging" class="tab-pane">
+      <!-- Technical Dimensions Switcher -->
+      <div class="subview-pills">
+        <button class="subview-pill-btn" onclick="window.switchTechDimensionsView('dimensions')">
+          <i data-lucide="cpu"></i> <span>Phase &amp; Manufacturer Make</span>
+        </button>
+        <button class="subview-pill-btn active" onclick="window.switchTechDimensionsView('aging')">
+          <i data-lucide="hourglass"></i> <span>Technology &amp; Aging Intervals</span>
+        </button>
+      </div>
       <div class="table-dual-grid">
         <!-- Technology Table -->
         <div class="table-card card">
@@ -1241,7 +1386,328 @@
       </div>
     </div>
 
-  </main>
+    <!-- TAB 8: DAILY CHURN & TREND ANALYTICS -->
+    <div id="tab-daily-churn" class="tab-pane active">
+      <!-- Context Banner -->
+      <div class="correlation-header card" style="margin-bottom: 20px; background: linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.8) 100%);">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 14px;">
+          <div>
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
+              <span class="report-status-badge badge-active" style="background: rgba(16, 185, 129, 0.15); color: var(--accent-emerald); border: 1px solid rgba(16, 185, 129, 0.3);">
+                <i data-lucide="activity"></i> LIVE RECOVERY TRACKER
+              </span>
+              <h2 style="font-size: 1.25rem; font-weight: 700; color: #fff; margin: 0;">Daily Non-Communication Churn &amp; Trend Analytics</h2>
+            </div>
+            <p style="color: var(--text-secondary); font-size: 0.85rem; margin: 0; line-height: 1.5;">
+              Comparing <strong>Current Sync (Today)</strong> with <strong>Yesterday's Final Sync</strong> to track meters restored across aging buckets and newly non-communicating meters.
+            </p>
+          </div>
+          <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+            <div class="sync-badge" style="background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.3); color: var(--accent-amber); padding: 6px 12px; border-radius: 6px; font-size: 0.8rem;">
+              <i data-lucide="clock" style="width: 14px; height: 14px; vertical-align: middle;"></i> <strong>Yesterday Base:</strong> <span id="churnYesterdaySyncLabel">--</span>
+            </div>
+            <div class="sync-badge" style="background: rgba(6, 182, 212, 0.12); border: 1px solid rgba(6, 182, 212, 0.3); color: var(--accent-cyan); padding: 6px 12px; border-radius: 6px; font-size: 0.8rem;">
+              <i data-lucide="refresh-cw" style="width: 14px; height: 14px; vertical-align: middle;"></i> <strong>Current Sync:</strong> <span id="churnTodaySyncLabel">--</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- KPI Stat Strip (6 Cards in Single Grid Row) -->
+      <section class="kpi-grid" style="grid-template-columns: repeat(6, 1fr); margin-bottom: 24px;">
+        <!-- Card 1: Yesterday Silent -->
+        <div class="kpi-card card">
+          <div class="kpi-header">
+            <span class="kpi-label">Yesterday Silent (Base)</span>
+            <div class="kpi-icon-wrap icon-amber"><i data-lucide="history"></i></div>
+          </div>
+          <div class="kpi-value-wrap">
+            <div class="kpi-value text-amber" id="churnKpiYesterdaySilent">--</div>
+            <span class="kpi-subtext" id="churnKpiYesterdayTimeSub">Yesterday Last Sync</span>
+          </div>
+          <div class="kpi-footer">
+            <span class="pill pill-amber"><i data-lucide="database"></i> Starting Backlog</span>
+          </div>
+        </div>
+
+        <!-- Card 2: Cleared Today -->
+        <div class="kpi-card card">
+          <div class="kpi-header">
+            <span class="kpi-label">Cleared Today (Restored)</span>
+            <div class="kpi-icon-wrap icon-emerald"><i data-lucide="check-check"></i></div>
+          </div>
+          <div class="kpi-value-wrap">
+            <div class="kpi-value text-emerald" id="churnKpiClearedToday">--</div>
+            <span class="kpi-subtext" id="churnKpiClearedPctSub">--% of Base Recovered</span>
+          </div>
+          <div class="kpi-footer">
+            <span class="pill pill-emerald"><i data-lucide="arrow-up-right"></i> Network Restored</span>
+          </div>
+        </div>
+
+        <!-- Card 3: New Additions -->
+        <div class="kpi-card card">
+          <div class="kpi-header">
+            <span class="kpi-label">New Additions Today</span>
+            <div class="kpi-icon-wrap icon-rose"><i data-lucide="alert-circle"></i></div>
+          </div>
+          <div class="kpi-value-wrap">
+            <div class="kpi-value text-rose" id="churnKpiNewAdditions">--</div>
+            <span class="kpi-subtext">Meters newly gone silent</span>
+          </div>
+          <div class="kpi-footer">
+            <span class="pill pill-rose"><i data-lucide="trending-up"></i> Inflow Today</span>
+          </div>
+        </div>
+
+        <!-- Card 4: Net Backlog Change -->
+        <div class="kpi-card card">
+          <div class="kpi-header">
+            <span class="kpi-label">Net Backlog Change</span>
+            <div class="kpi-icon-wrap icon-cyan"><i data-lucide="git-commit"></i></div>
+          </div>
+          <div class="kpi-value-wrap">
+            <div class="kpi-value text-cyan" id="churnKpiNetChange">--</div>
+            <span class="kpi-subtext" id="churnKpiNetSub">New Additions - Cleared</span>
+          </div>
+          <div class="kpi-footer">
+            <span class="pill pill-cyan" id="churnKpiNetPill"><i data-lucide="shield-check"></i> Backlog Trend</span>
+          </div>
+        </div>
+
+        <!-- Card 5: Current Silent -->
+        <div class="kpi-card card">
+          <div class="kpi-header">
+            <span class="kpi-label">Current Silent (Today)</span>
+            <div class="kpi-icon-wrap icon-amber"><i data-lucide="radio"></i></div>
+          </div>
+          <div class="kpi-value-wrap">
+            <div class="kpi-value text-amber" id="churnKpiTodaySilent">--</div>
+            <span class="kpi-subtext" id="churnKpiTodayTimeSub">Current Sync Report</span>
+          </div>
+          <div class="kpi-footer">
+            <span class="pill pill-amber"><i data-lucide="activity"></i> Active Backlog</span>
+          </div>
+        </div>
+
+        <!-- Card 6: Still Silent -->
+        <div class="kpi-card card">
+          <div class="kpi-header">
+            <span class="kpi-label">Still Silent (Persistent)</span>
+            <div class="kpi-icon-wrap" style="background: rgba(148, 163, 184, 0.15); color: #cbd5e1;"><i data-lucide="clock-alert"></i></div>
+          </div>
+          <div class="kpi-value-wrap">
+            <div class="kpi-value" style="color: #cbd5e1;" id="churnKpiStillSilent">--</div>
+            <span class="kpi-subtext">Unresolved from yesterday</span>
+          </div>
+          <div class="kpi-footer">
+            <span class="pill" style="background: rgba(148, 163, 184, 0.15); color: #cbd5e1;"><i data-lucide="hourglass"></i> Persistent Backlog</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 1: Non-Comm Aging Clearance Matrix -->
+      <div class="table-card card" id="agingChurnCard" style="margin-bottom: 24px;">
+        <div class="table-header-flex">
+          <div>
+            <h3>1. Non-Communication Aging Clearance Matrix</h3>
+            <p>Detailed breakdown of how many silent meters with each aging bucket cleared today vs still silent and new additions</p>
+          </div>
+          <div class="table-actions" style="display: flex; gap: 8px; align-items: center;">
+            <button class="btn btn-sm btn-outline" onclick="window.exportChurnData('aging')">
+              <i data-lucide="download"></i> Export Aging CSV
+            </button>
+            <button class="btn btn-sm btn-snap" onclick="window.copyTableScreenshot('agingChurnCard', 'SBPDCL_Aging_Clearance_Summary', this)" title="Copy high-res table image to clipboard (Ctrl+V) for management sharing">
+              <i data-lucide="camera"></i> <span>Copy Image (Ctrl+V)</span>
+            </button>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="data-table" id="agingChurnTable">
+            <thead>
+              <tr>
+                <th style="min-width: 170px;">Aging Bucket</th>
+                <th class="text-right">Yesterday Silent (Base)</th>
+                <th class="text-right" style="color: var(--accent-emerald);">Cleared Today (Restored)</th>
+                <th class="text-right">Clearance Rate (%)</th>
+                <th class="text-right" style="color: var(--text-muted);">Still Silent (Persistent)</th>
+                <th class="text-right" style="color: var(--accent-rose);">New Additions Today</th>
+                <th class="text-right">Today Silent (Current)</th>
+                <th class="text-right">Net Change</th>
+              </tr>
+            </thead>
+            <tbody id="agingChurnTableBody">
+              <!-- Rendered via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Section 2: Circle-Wise Churn & Clearance Table -->
+      <div class="table-card card" id="circleChurnCard" style="margin-bottom: 24px;">
+        <div class="table-header-flex">
+          <div>
+            <h3>2. Circle-Wise Recovery &amp; Churn Analysis</h3>
+            <p>Circle-level tracking of cleared non-comm meters across aging segments and newly silent additions</p>
+          </div>
+          <div class="table-actions" style="display: flex; gap: 8px; align-items: center;">
+            <button class="btn btn-sm btn-outline" onclick="window.exportChurnData('circle')">
+              <i data-lucide="download"></i> Export Circle CSV
+            </button>
+            <button class="btn btn-sm btn-snap" onclick="window.copyTableScreenshot('circleChurnCard', 'SBPDCL_Circle_Recovery_Summary', this)" title="Copy high-res table image to clipboard (Ctrl+V) for management sharing">
+              <i data-lucide="camera"></i> <span>Copy Image (Ctrl+V)</span>
+            </button>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="data-table" id="circleChurnTable">
+            <thead>
+              <tr>
+                <th>Circle</th>
+                <th class="text-right">Yesterday Silent</th>
+                <th class="text-right" style="color: var(--accent-cyan);">Cleared (4-7D)</th>
+                <th class="text-right" style="color: var(--accent-cyan);">Cleared (8-30D)</th>
+                <th class="text-right" style="color: var(--accent-cyan);">Cleared (&gt;30D)</th>
+                <th class="text-right" style="color: var(--accent-cyan);">Cleared (Never)</th>
+                <th class="text-right" style="color: var(--accent-emerald); font-weight: 700;">Total Cleared</th>
+                <th class="text-right" style="color: var(--accent-rose);">New Additions</th>
+                <th class="text-right">Net Change</th>
+                <th class="text-right" style="font-weight: 700;">Today Silent</th>
+                <th class="text-right">Recovery Rate (%)</th>
+              </tr>
+            </thead>
+            <tbody id="circleChurnTableBody">
+              <!-- Rendered via JS -->
+            </tbody>
+            <tfoot id="circleChurnTableFoot" style="font-weight: 700; background: rgba(15, 23, 42, 0.4);">
+              <!-- Total row -->
+            </tfoot>
+          </table>
+        </div>
+      </div>
+
+      <!-- Section 3: Division-Wise Churn Breakdown -->
+      <div class="table-card card" id="divisionChurnCard" style="margin-bottom: 24px;">
+        <div class="table-header-flex">
+          <div>
+            <h3>3. Division-Wise Detailed Churn &amp; Recovery Breakdown</h3>
+            <p id="churnDivisionCountHeader">Showing all divisions</p>
+          </div>
+          <div class="table-actions" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+            <select id="churnDivisionCircleFilter" class="form-select" style="min-width: 170px; padding: 6px 12px; font-size: 0.85rem;">
+              <option value="ALL">All Circles</option>
+            </select>
+            <div class="search-input-wrap" style="width: 200px;">
+              <i data-lucide="search" class="search-icon"></i>
+              <input type="text" id="churnDivisionSearch" class="form-input" placeholder="Search Division...">
+            </div>
+            <button class="btn btn-sm btn-outline" onclick="window.exportChurnData('division')">
+              <i data-lucide="download"></i> Export Division CSV
+            </button>
+            <button class="btn btn-sm btn-snap" onclick="window.copyTableScreenshot('divisionChurnCard', 'SBPDCL_Division_Recovery_Summary', this)" title="Copy high-res table image to clipboard (Ctrl+V) for management sharing">
+              <i data-lucide="camera"></i> <span>Copy Image (Ctrl+V)</span>
+            </button>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="data-table" id="divisionChurnTable">
+            <thead>
+              <tr>
+                <th>Circle</th>
+                <th>Division</th>
+                <th class="text-right">Yesterday Silent</th>
+                <th class="text-right" style="color: var(--accent-cyan);">Cleared (4-7D)</th>
+                <th class="text-right" style="color: var(--accent-cyan);">Cleared (8-30D)</th>
+                <th class="text-right" style="color: var(--accent-cyan);">Cleared (&gt;30D)</th>
+                <th class="text-right" style="color: var(--accent-cyan);">Cleared (Never)</th>
+                <th class="text-right" style="color: var(--accent-emerald); font-weight: 700;">Total Cleared</th>
+                <th class="text-right" style="color: var(--accent-rose);">New Additions</th>
+                <th class="text-right">Net Change</th>
+                <th class="text-right" style="font-weight: 700;">Today Silent</th>
+                <th class="text-right">Recovery Rate (%)</th>
+              </tr>
+            </thead>
+            <tbody id="divisionChurnTableBody">
+              <!-- Rendered via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Section 4: 10-Day Historical Trend Accumulator Table -->
+      <div class="table-card card" id="trendHistoryCard">
+        <div class="table-header-flex" style="flex-wrap: wrap; gap: 12px; align-items: center;">
+          <div>
+            <h3>4. 10-Day Historical Churn &amp; Recovery Trend Accumulator</h3>
+            <p>Accumulating daily delta statistics across successive synchronization cycles</p>
+          </div>
+          <div class="table-actions" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+            <!-- Trend View Switcher Pills -->
+            <div class="trend-view-switcher" id="trendViewSwitcher" style="display: inline-flex; background: var(--bg-surface); padding: 3px; border-radius: var(--radius-md); border: 1px solid var(--border-color); gap: 2px;">
+              <button class="trend-view-btn" data-view="overall" id="btnTrendOverall" style="padding: 5px 12px; font-size: 0.78rem; border: none; border-radius: var(--radius-sm); cursor: pointer;">
+                <i data-lucide="bar-chart-2"></i> Overall Trend
+              </button>
+              <button class="trend-view-btn active" data-view="circle" id="btnTrendCircle" style="padding: 5px 12px; font-size: 0.78rem; border: none; border-radius: var(--radius-sm); cursor: pointer;">
+                <i data-lucide="pie-chart"></i> Circle-Wise Daywise
+              </button>
+              <button class="trend-view-btn" data-view="division" id="btnTrendDivision" style="padding: 5px 12px; font-size: 0.78rem; border: none; border-radius: var(--radius-sm); cursor: pointer;">
+                <i data-lucide="map-pin"></i> Division-Wise Daywise
+              </button>
+            </div>
+
+            <!-- Export Button -->
+            <button class="btn btn-sm btn-outline" id="btnExportTrendCsv" onclick="window.exportCurrentTrendData()">
+              <i data-lucide="download"></i> <span id="trendExportBtnText">Export Circle Trend CSV</span>
+            </button>
+
+            <!-- Instant Screenshot / Copy Image Button -->
+            <button class="btn btn-sm btn-snap" id="btnSnapTrendCard" onclick="window.copyTableScreenshot('trendHistoryCard', 'SBPDCL_Historical_Trend_Summary', this)" title="Instantly capture this table and copy image to clipboard to paste (Ctrl+V) in WhatsApp, Teams, Email">
+              <i data-lucide="camera"></i> <span>Copy Table Image</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Filter Sub-Bar for Circle / Division Daywise Trend -->
+        <div id="trendFilterBar" class="trend-filter-bar" style="padding: 10px 16px; background: rgba(255, 255, 255, 0.02); border-bottom: 1px solid var(--border-color); display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <label style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;"><i data-lucide="calendar"></i> Date:</label>
+            <select id="trendDateFilter" class="form-select form-select-sm" style="padding: 4px 8px; font-size: 0.8rem; min-width: 130px; height: 30px;">
+              <option value="ALL">All Dates</option>
+            </select>
+          </div>
+
+          <div id="trendCircleFilterGroup" style="display: flex; align-items: center; gap: 6px;">
+            <label style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;"><i data-lucide="filter"></i> Circle:</label>
+            <select id="trendCircleFilter" class="form-select form-select-sm" style="padding: 4px 8px; font-size: 0.8rem; min-width: 140px; height: 30px;">
+              <option value="ALL">All Circles</option>
+            </select>
+          </div>
+
+          <div style="flex: 1; min-width: 180px; max-width: 280px; margin-left: auto;">
+            <input type="text" id="trendSearchInput" class="form-control form-control-sm" placeholder="Search Circle / Division..." style="height: 30px; font-size: 0.8rem; padding: 4px 10px;">
+          </div>
+          <span id="trendCountBadge" class="mono-badge text-muted" style="font-size: 0.75rem;">Showing records</span>
+        </div>
+
+        <div class="table-responsive">
+          <table class="data-table" id="trendHistoryTable">
+            <thead id="trendHistoryTableHead">
+              <!-- Rendered dynamically via JS -->
+            </thead>
+            <tbody id="trendHistoryTableBody">
+              <!-- Rendered via JS -->
+            </tbody>
+            <tfoot id="trendHistoryTableFoot">
+              <!-- Rendered via JS -->
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+
+      </main>
+    </div> <!-- /.app-main -->
+  </div> <!-- /.app-layout -->
 
   <!-- Multi-Report Downloader Hub Modal -->
   <div id="syncModal" class="modal-overlay hidden">
@@ -1410,6 +1876,6 @@
   <!-- Toast Notification -->
   <div id="toast" class="toast hidden"></div>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=3.0"></script>
 </body>
 </html>

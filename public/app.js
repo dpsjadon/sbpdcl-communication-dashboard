@@ -28,6 +28,7 @@ const state = {
   },
   metersPage: 1,
   metersLimit: 50,
+  activeTab: 'tab-daily-churn',
   charts: {},
   isFetching: false
 };
@@ -36,11 +37,14 @@ const state = {
 document.addEventListener('DOMContentLoaded', async () => {
   if (window.lucide) lucide.createIcons();
   setupTheme();
+  setupSidebar();
   setupEventListeners();
   setupCategorySwitcher();
   setupCorrelationFilters();
   setupDownloaderHub();
+  setupDailyChurnEventListeners();
   updateTabVisibility();
+  updateTopBreadcrumb();
   await loadReportStatuses();
   await loadInitialData();
 });
@@ -53,14 +57,16 @@ function setupTheme() {
   document.documentElement.setAttribute('data-theme', savedTheme);
   updateThemeIcon(savedTheme);
 
-  toggleBtn.addEventListener('click', () => {
-    const current = document.documentElement.getAttribute('data-theme');
-    const next = current === 'dark' ? 'light' : 'dark';
-    document.documentElement.setAttribute('data-theme', next);
-    localStorage.setItem('theme', next);
-    updateThemeIcon(next);
-    rebuildCharts();
-  });
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', () => {
+      const current = document.documentElement.getAttribute('data-theme');
+      const next = current === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next);
+      updateThemeIcon(next);
+      rebuildCharts();
+    });
+  }
 }
 
 function updateThemeIcon(theme) {
@@ -70,6 +76,139 @@ function updateThemeIcon(theme) {
     if (window.lucide) lucide.createIcons();
   }
 }
+
+// --- Collapsible Sidebar & Smart Controls Setup ---
+function setupSidebar() {
+  const collapseBtn = document.getElementById('sidebarCollapseBtn');
+  const topbarToggleBtn = document.getElementById('sidebarToggleBtnTop');
+
+  // Check saved collapsed state
+  const isCollapsed = localStorage.getItem('sbpdcl_sidebar_collapsed') === '1';
+  if (isCollapsed) {
+    document.body.classList.add('sidebar-collapsed');
+  }
+
+  function toggleSidebar() {
+    const collapsed = document.body.classList.toggle('sidebar-collapsed');
+    localStorage.setItem('sbpdcl_sidebar_collapsed', collapsed ? '1' : '0');
+    const icon = document.getElementById('sidebarCollapseIcon');
+    if (icon) {
+      icon.setAttribute('data-lucide', collapsed ? 'panel-left-open' : 'panel-left-close');
+      if (window.lucide) lucide.createIcons();
+    }
+  }
+
+  if (collapseBtn) collapseBtn.addEventListener('click', toggleSidebar);
+  if (topbarToggleBtn) topbarToggleBtn.addEventListener('click', toggleSidebar);
+
+  // Setup advanced filter drawer toggle
+  const btnToggleAdv = document.getElementById('btnToggleAdvancedFilters');
+  const advDrawer = document.getElementById('smartFilterAdvanced');
+  const advChevron = document.getElementById('advFilterChevron');
+  if (btnToggleAdv && advDrawer) {
+    btnToggleAdv.addEventListener('click', () => {
+      const isHidden = advDrawer.classList.toggle('hidden');
+      btnToggleAdv.classList.toggle('active', !isHidden);
+      if (advChevron) {
+        advChevron.setAttribute('data-lucide', isHidden ? 'chevron-down' : 'chevron-up');
+        if (window.lucide) lucide.createIcons();
+      }
+    });
+  }
+
+  // Setup smart filter card hide/show toggle
+  const btnToggleFilters = document.getElementById('btnToggleFilters');
+  const filterCard = document.getElementById('smartFilterCard');
+  if (btnToggleFilters && filterCard) {
+    btnToggleFilters.addEventListener('click', () => {
+      const isHidden = filterCard.classList.toggle('hidden');
+      btnToggleFilters.classList.toggle('btn-primary', !isHidden);
+    });
+  }
+}
+
+// Switcher for Geographic Hierarchy subviews
+function switchHierarchyView(subview) {
+  // subview: 'circle' | 'division' | 'section'
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.subview-pill-btn').forEach(b => b.classList.remove('active'));
+
+  const tabId = 'tab-' + subview;
+  const pane = document.getElementById(tabId);
+  if (pane) pane.classList.add('active');
+
+  state.activeTab = tabId;
+
+  // Highlight hierarchy in sidebar
+  document.querySelectorAll('.sidebar-nav-item.nav-tab').forEach(t => {
+    t.classList.toggle('active', t.id === 'navTabHierarchy' || t.dataset.tab === tabId);
+  });
+
+  updateTopBreadcrumb();
+  renderActiveView();
+}
+window.switchHierarchyView = switchHierarchyView;
+
+// Switcher for Technical Dimensions subviews
+function switchTechDimensionsView(subview) {
+  // subview: 'dimensions' | 'aging'
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.subview-pill-btn').forEach(b => b.classList.remove('active'));
+
+  const tabId = 'tab-' + subview;
+  const pane = document.getElementById(tabId);
+  if (pane) pane.classList.add('active');
+
+  state.activeTab = tabId;
+
+  // Highlight dimensions in sidebar
+  document.querySelectorAll('.sidebar-nav-item.nav-tab').forEach(t => {
+    t.classList.toggle('active', t.id === 'navTabDimensions' || t.dataset.tab === tabId);
+  });
+
+  updateTopBreadcrumb();
+  renderActiveView();
+}
+window.switchTechDimensionsView = switchTechDimensionsView;
+
+function updateTopBreadcrumb() {
+  const assetEl = document.getElementById('breadcrumbAsset');
+  const moduleEl = document.getElementById('breadcrumbModule');
+  const subEl = document.getElementById('appHeaderSubtitle');
+
+  const assetNames = {
+    consumer: 'Consumer Meters',
+    dt: 'DT Meters',
+    feeder: 'Feeder Meters',
+    complaint: 'O&M Complaints'
+  };
+
+  const moduleNames = {
+    'tab-daily-churn': { title: 'Daily Churn & Trend', sub: 'Comparing Current Sync with Yesterday\'s Final Sync across aging segments' },
+    'tab-circle': { title: 'Geographic: Circle Performance', sub: 'Geographic hierarchy breakdown across all 7 Circles' },
+    'tab-division': { title: 'Geographic: Division Breakdown', sub: 'Geographic hierarchy breakdown across all 26 Divisions' },
+    'tab-section': { title: 'Geographic: Section Drilldown', sub: 'Section-level communication tracking across SBPDCL' },
+    'tab-dimensions': { title: 'Technical: Phase & Make', sub: 'Dimensional analysis grouped by Phase rating and meter Make' },
+    'tab-aging': { title: 'Technical: Tech & Aging', sub: 'HES Network Technology and non-communication aging buckets' },
+    'tab-correlation': { title: 'Ticket Correlation & Backlog', sub: 'Cross-analyzing silent smart meters against O&M complaint tickets' },
+    'tab-meters': { title: 'Consumer Explorer', sub: 'Live meter record drilldown and granular telemetry' },
+    'tab-overview': { title: 'Executive Pulse Overview', sub: 'Executive bird\'s-eye view across hierarchy and aging matrix' },
+    'tab-datewise': { title: 'Date-wise Analytics', sub: 'Daily ticket resolution rates and lifecycle tracking' }
+  };
+
+  if (assetEl) assetEl.textContent = assetNames[state.category] || 'Consumer Meters';
+  const mod = moduleNames[state.activeTab] || { title: 'Analytics View', sub: 'SBPDCL Executive Dashboard' };
+  if (moduleEl) moduleEl.textContent = mod.title;
+  if (subEl) subEl.textContent = mod.sub;
+
+  // Contextual Fleet KPI strip: hide when in Daily Churn or Correlation
+  const fleetKpis = document.getElementById('fleetKpiStrip');
+  if (fleetKpis) {
+    const isChurnOrCorr = (state.activeTab === 'tab-daily-churn' || state.activeTab === 'tab-correlation');
+    fleetKpis.style.display = isChurnOrCorr ? 'none' : 'grid';
+  }
+}
+window.updateTopBreadcrumb = updateTopBreadcrumb;
 
 // --- Category Switcher (Consumer / DT / Feeder) ---
 function setupCategorySwitcher() {
@@ -160,37 +299,22 @@ function switchCategory(cat) {
 
 function updateTabVisibility() {
   const isOM = (state.category === 'complaint');
-  const omTabs = ['navTabOverview', 'navTabCorrelation', 'navTabDateWise'];
-  const omPanes = ['tab-overview', 'tab-correlation', 'tab-datewise'];
-
-  omTabs.forEach(id => {
-    const el = document.getElementById(id);
-    if (el) {
-      el.classList.toggle('hidden', !isOM);
-      el.style.display = isOM ? 'inline-flex' : 'none';
-    }
-  });
-
-  // If currently active tab is one of the O&M-only tabs and we are NOT in O&M, switch to Circle Analysis
-  const activeTab = document.querySelector('.nav-tab.active');
-  const activeTabId = activeTab ? activeTab.dataset.tab : '';
-
-  if (!isOM && omPanes.includes(activeTabId)) {
-    document.querySelectorAll('.nav-tab').forEach(t => {
-      t.classList.toggle('active', t.dataset.tab === 'tab-circle');
-    });
-    document.querySelectorAll('.tab-pane').forEach(p => {
-      p.classList.toggle('active', p.id === 'tab-circle');
-    });
-  } else if (isOM && (activeTabId === 'tab-circle' || !activeTabId)) {
-    // When switching to O&M complaint, default to Overview
-    document.querySelectorAll('.nav-tab').forEach(t => {
-      t.classList.toggle('active', t.dataset.tab === 'tab-overview');
-    });
-    document.querySelectorAll('.tab-pane').forEach(p => {
-      p.classList.toggle('active', p.id === 'tab-overview');
-    });
+  
+  // Date-wise Analytics tab is specific to O&M complaints
+  const dateWiseEl = document.getElementById('navTabDateWise');
+  if (dateWiseEl) {
+    dateWiseEl.classList.toggle('hidden', !isOM);
+    dateWiseEl.style.display = isOM ? 'flex' : 'none';
   }
+
+  // If on Date-wise tab and switching away from O&M, fall back to Daily Churn
+  if (!isOM && state.activeTab === 'tab-datewise') {
+    state.activeTab = 'tab-daily-churn';
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.toggle('active', p.id === 'tab-daily-churn'));
+    document.querySelectorAll('.sidebar-nav-item.nav-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === 'tab-daily-churn'));
+  }
+
+  updateTopBreadcrumb();
 }
 
 function updateFilterLabelsForCategory() {
@@ -482,7 +606,9 @@ async function loadInitialData() {
       state.baselineOverview = dataJson;
       state.currentData = dataJson;
       renderAllViews();
-      loadMetersTable();
+      if (state.activeTab === 'tab-meters') {
+        loadMetersTable();
+      }
     }
   } catch (err) {
     showToast(`Error loading ${state.category} analytics: ` + err.message, 'error');
@@ -661,7 +787,15 @@ function updateSectionDropdown() {
 
 // --- Fetch Filtered Analytics (Dynamic Slicing) ---
 let filterDebounce = null;
+let currentAnalyticsAbortController = null;
+
 async function fetchFilteredAnalytics() {
+  if (currentAnalyticsAbortController) {
+    currentAnalyticsAbortController.abort();
+  }
+  currentAnalyticsAbortController = new AbortController();
+  const signal = currentAnalyticsAbortController.signal;
+
   try {
     const params = new URLSearchParams({
       category: state.category,
@@ -680,23 +814,80 @@ async function fetchFilteredAnalytics() {
       search: state.filters.search
     });
 
-    const res = await fetch(`/api/analytics/filtered?${params.toString()}`);
+    const res = await fetch(`/api/analytics/filtered?${params.toString()}`, { signal });
     const json = await res.json();
     if (!json.success) throw new Error(json.error || 'Failed to slice analytics');
 
     state.currentData = json;
     renderAllViews();
-    loadMetersTable();
+
+    if (state.activeTab === 'tab-meters') {
+      loadMetersTable();
+    }
 
   } catch (err) {
+    if (err.name === 'AbortError') return;
     showToast('Filter error: ' + err.message, 'error');
+  } finally {
+    if (currentAnalyticsAbortController?.signal === signal) {
+      currentAnalyticsAbortController = null;
+    }
   }
 }
 
 function renderAllViews() {
   renderKPIs();
-  renderCharts();
-  renderAllTables();
+  renderActiveView();
+}
+
+function renderActiveView() {
+  if (!state.currentData) return;
+  const tab = state.activeTab || 'tab-overview';
+
+  switch (tab) {
+    case 'tab-overview':
+      renderOverviewTables();
+      renderCircleCommChart();
+      renderAgingChart();
+      break;
+    case 'tab-circle':
+      renderCircleTable();
+      renderCircleCommChart();
+      break;
+    case 'tab-division':
+      renderDivisionTable();
+      break;
+    case 'tab-section':
+      renderSectionTable();
+      break;
+    case 'tab-dimensions':
+      renderDimensionsTable();
+      renderMakeTable();
+      break;
+    case 'tab-technology':
+      renderTechTable();
+      break;
+    case 'tab-aging':
+      renderAgingTable();
+      renderAgingChart();
+      break;
+    case 'tab-datewise':
+      renderDateWiseTable();
+      renderDateWiseCharts();
+      break;
+    case 'tab-meters':
+      loadMetersTable();
+      break;
+    case 'tab-correlation':
+      loadTicketCorrelationData();
+      break;
+    case 'tab-daily-churn':
+      loadDailyChurnView();
+      break;
+    default:
+      renderOverviewTables();
+      break;
+  }
 }
 
 // --- Render KPI Cards (7 Core Metrics in Single Row) ---
@@ -1830,8 +2021,18 @@ function setupEventListeners() {
       const targetPane = document.getElementById(tab.dataset.tab);
       if (targetPane) targetPane.classList.add('active');
 
+      state.activeTab = tab.dataset.tab;
+
+      updateTopBreadcrumb();
+
       if (tab.dataset.tab === 'tab-correlation') {
         loadTicketCorrelationData();
+      } else if (tab.dataset.tab === 'tab-meters') {
+        loadMetersTable();
+      } else if (tab.dataset.tab === 'tab-daily-churn') {
+        loadDailyChurnView();
+      } else {
+        renderActiveView();
       }
     });
   });
@@ -1926,7 +2127,7 @@ function onFiltersChanged() {
   clearTimeout(filterDebounce);
   filterDebounce = setTimeout(() => {
     fetchFilteredAnalytics();
-  }, 100);
+  }, 250);
 }
 
 // --- Downloader Hub & Multi-Report Synchronization ---
@@ -2260,9 +2461,15 @@ let corrState = {
   isFetching: false
 };
 let corrDebounceTimer = null;
+let corrAbortController = null;
 
 async function loadTicketCorrelationData() {
-  if (corrState.isFetching) return;
+  if (corrAbortController) {
+    corrAbortController.abort();
+  }
+  corrAbortController = new AbortController();
+  const signal = corrAbortController.signal;
+
   corrState.isFetching = true;
 
   const circle = document.getElementById('corrFilterCircle')?.value || 'ALL';
@@ -2280,7 +2487,7 @@ async function loadTicketCorrelationData() {
   });
 
   try {
-    const res = await fetch(`/api/analytics/ticket-correlation?${params.toString()}`);
+    const res = await fetch(`/api/analytics/ticket-correlation?${params.toString()}`, { signal });
     const json = await res.json();
     if (!json.success) throw new Error(json.error || 'Failed to fetch correlation data');
 
@@ -2292,10 +2499,14 @@ async function loadTicketCorrelationData() {
     updateCorrDivisionDropdown(json.divisions);
 
   } catch (err) {
+    if (err.name === 'AbortError') return;
     console.error('Correlation fetch error:', err);
     showToast('Correlation Error: ' + err.message, 'error');
   } finally {
-    corrState.isFetching = false;
+    if (corrAbortController?.signal === signal) {
+      corrAbortController = null;
+      corrState.isFetching = false;
+    }
     if (window.lucide) lucide.createIcons();
   }
 }
@@ -2972,4 +3183,1031 @@ function drilldownCorrCircle(circleName) {
   onFiltersChanged();
 }
 window.drilldownCorrCircle = drilldownCorrCircle;
+
+// ==========================================================================
+// DAILY CHURN & 10-DAY TREND ACCUMULATOR MODULE
+// Comparing Current Sync (Today) with Yesterday's Final Sync
+// ==========================================================================
+
+let dailyChurnState = {
+  data: null,
+  isFetching: false,
+  circleFilter: 'ALL',
+  divisionSearch: ''
+};
+
+async function loadDailyChurnView() {
+  const container = document.getElementById('tab-daily-churn');
+  if (!container) return;
+
+  dailyChurnState.isFetching = true;
+  const currentCategory = (state.category === 'complaint') ? 'consumer' : state.category;
+
+  try {
+    const res = await fetch(`/api/daily-churn?category=${currentCategory}`);
+    const json = await res.json();
+    if (!json.success) {
+      console.error('Failed to load daily churn:', json.message);
+      return;
+    }
+
+    dailyChurnState.data = json;
+    renderDailyChurnView();
+  } catch (err) {
+    console.error('Error fetching daily churn data:', err);
+  } finally {
+    dailyChurnState.isFetching = false;
+  }
+}
+window.loadDailyChurnView = loadDailyChurnView;
+
+function renderDailyChurnView() {
+  const data = dailyChurnState.data;
+  if (!data) return;
+
+  const summary = data.summary || {};
+  const agingMatrix = data.agingMatrix || [];
+  const circleTable = data.circleTable || [];
+  const divisionTable = data.divisionTable || [];
+  const trendHistory = data.trendHistory || [];
+
+  // 1. Sync Timestamp Labels (Explicitly confirming Yesterday Final Sync vs Current Sync)
+  const lblYesterday = document.getElementById('churnYesterdaySyncLabel');
+  if (lblYesterday) {
+    lblYesterday.textContent = `${data.yesterdayDate || '--'} (${data.yesterdayTime || '--'}) [Yesterday Final Sync]`;
+  }
+  const lblToday = document.getElementById('churnTodaySyncLabel');
+  if (lblToday) {
+    lblToday.textContent = `${data.todayDate || '--'} (${data.todayTime || '--'}) [Current Sync]`;
+  }
+
+  // 2. Executive KPI Cards
+  const elYesterdaySilent = document.getElementById('churnKpiYesterdaySilent');
+  if (elYesterdaySilent) elYesterdaySilent.textContent = formatNum(summary.yesterdaySilent || 0);
+
+  const elYesterdayTimeSub = document.getElementById('churnKpiYesterdayTimeSub');
+  if (elYesterdayTimeSub) elYesterdayTimeSub.textContent = `Yesterday Last Sync (${summary.yesterdayTime || '--'})`;
+
+  const elClearedToday = document.getElementById('churnKpiClearedToday');
+  if (elClearedToday) elClearedToday.textContent = formatNum(summary.clearedToday || 0);
+
+  const elClearedPctSub = document.getElementById('churnKpiClearedPctSub');
+  if (elClearedPctSub) elClearedPctSub.textContent = `${summary.recoveryRatePct || '0.00'}% of Yesterday Base Restored`;
+
+  const elNewAdditions = document.getElementById('churnKpiNewAdditions');
+  if (elNewAdditions) elNewAdditions.textContent = formatNum(summary.newAdditionsToday || 0);
+
+  const elNetChange = document.getElementById('churnKpiNetChange');
+  if (elNetChange) {
+    const net = Number(summary.netChange || 0);
+    elNetChange.textContent = `${net > 0 ? '+' : ''}${formatNum(net)}`;
+    elNetChange.className = `kpi-value ${net <= 0 ? 'text-emerald' : 'text-rose'}`;
+  }
+
+  const elNetSub = document.getElementById('churnKpiNetSub');
+  if (elNetSub) {
+    const net = Number(summary.netChange || 0);
+    elNetSub.textContent = net <= 0 ? `Backlog reduced by ${formatNum(Math.abs(net))}` : `Backlog increased by ${formatNum(net)}`;
+  }
+
+  const elTodaySilent = document.getElementById('churnKpiTodaySilent');
+  if (elTodaySilent) elTodaySilent.textContent = formatNum(summary.todaySilent || 0);
+
+  const elTodayTimeSub = document.getElementById('churnKpiTodayTimeSub');
+  if (elTodayTimeSub) elTodayTimeSub.textContent = `Current Sync (${summary.todayTime || '--'})`;
+
+  const elStillSilent = document.getElementById('churnKpiStillSilent');
+  if (elStillSilent) elStillSilent.textContent = formatNum(summary.stillSilent || 0);
+
+  // 3. Table 1: Aging Clearance Matrix Table
+  const agingBody = document.getElementById('agingChurnTableBody');
+  if (agingBody) {
+    let totY = 0, totClr = 0, totStill = 0, totNew = 0, totT = 0, totNet = 0;
+    const rows = agingMatrix.map(row => {
+      totY += row.yesterdaySilent;
+      totClr += row.clearedToday;
+      totStill += row.stillSilent;
+      totNew += row.newAdditionsToday;
+      totT += row.todaySilent;
+      totNet += row.netChange;
+
+      return `
+        <tr>
+          <td><strong>${row.agingBucket}</strong></td>
+          <td class="text-right font-mono font-bold text-amber">${formatNum(row.yesterdaySilent)}</td>
+          <td class="text-right font-mono font-bold text-emerald">${formatNum(row.clearedToday)}</td>
+          <td class="text-center font-mono"><span class="badge ${Number(row.clearanceRatePct) >= 5 ? 'badge-success' : 'badge-secondary'}">${row.clearanceRatePct}%</span></td>
+          <td class="text-right font-mono" style="color: var(--text-muted);">${formatNum(row.stillSilent)}</td>
+          <td class="text-right font-mono font-bold text-rose">${formatNum(row.newAdditionsToday)}</td>
+          <td class="text-right font-mono font-bold text-amber">${formatNum(row.todaySilent)}</td>
+          <td class="text-right font-mono font-bold ${row.netChange <= 0 ? 'text-emerald' : 'text-rose'}">${row.netChange > 0 ? '+' : ''}${formatNum(row.netChange)}</td>
+        </tr>
+      `;
+    }).join('');
+
+    const totClrRate = totY > 0 ? ((totClr / totY) * 100).toFixed(2) : '0.00';
+    const totalRow = `
+      <tr class="table-total-row" style="font-weight: 700; background: rgba(255,255,255,0.06); border-top: 2px solid var(--border-color);">
+        <td><strong>TOTAL (ALL INTERVALS)</strong></td>
+        <td class="text-right font-mono font-bold text-amber">${formatNum(totY)}</td>
+        <td class="text-right font-mono font-bold text-emerald">${formatNum(totClr)}</td>
+        <td class="text-center font-mono"><span class="badge badge-success font-bold">${totClrRate}%</span></td>
+        <td class="text-right font-mono text-muted font-bold">${formatNum(totStill)}</td>
+        <td class="text-right font-mono font-bold text-rose">${formatNum(totNew)}</td>
+        <td class="text-right font-mono font-bold text-amber">${formatNum(totT)}</td>
+        <td class="text-right font-mono font-bold ${totNet <= 0 ? 'text-emerald' : 'text-rose'}">${totNet > 0 ? '+' : ''}${formatNum(totNet)}</td>
+      </tr>
+    `;
+    agingBody.innerHTML = rows + totalRow;
+  }
+
+  // 4. Table 2: Circle-Wise Recovery & Churn Table
+  const circleBody = document.getElementById('circleChurnTableBody');
+  const circleFoot = document.getElementById('circleChurnTableFoot');
+  if (circleBody) {
+    let totY = 0, totC47 = 0, totC830 = 0, totCgt30 = 0, totCnever = 0, totClr = 0, totNew = 0, totNet = 0, totT = 0;
+
+    const rows = circleTable.map(row => {
+      totY += row.yesterdaySilent;
+      totC47 += row.cleared_4_7d;
+      totC830 += row.cleared_8_30d;
+      totCgt30 += row.cleared_gt30d;
+      totCnever += row.cleared_never;
+      totClr += row.clearedToday;
+      totNew += row.newAdditionsToday;
+      totNet += row.netChange;
+      totT += row.todaySilent;
+
+      return `
+        <tr class="clickable-row" onclick="filterChurnDivisionByCircle('${(row.circle || '').replace(/'/g, "\\'")}')" title="Click to filter divisions for ${row.circle}">
+          <td><strong>${row.circle}</strong></td>
+          <td class="text-right font-mono font-bold text-amber">${formatNum(row.yesterdaySilent)}</td>
+          <td class="text-right font-mono text-cyan">${formatNum(row.cleared_4_7d)}</td>
+          <td class="text-right font-mono text-cyan">${formatNum(row.cleared_8_30d)}</td>
+          <td class="text-right font-mono text-cyan">${formatNum(row.cleared_gt30d)}</td>
+          <td class="text-right font-mono text-cyan">${formatNum(row.cleared_never)}</td>
+          <td class="text-right font-mono font-bold text-emerald">${formatNum(row.clearedToday)}</td>
+          <td class="text-right font-mono font-bold text-rose">${formatNum(row.newAdditionsToday)}</td>
+          <td class="text-right font-mono font-bold ${row.netChange <= 0 ? 'text-emerald' : 'text-rose'}">${row.netChange > 0 ? '+' : ''}${formatNum(row.netChange)}</td>
+          <td class="text-right font-mono font-bold text-amber">${formatNum(row.todaySilent)}</td>
+          <td class="text-center font-mono"><span class="badge ${Number(row.recoveryRatePct) >= 5 ? 'badge-success' : 'badge-secondary'}">${row.recoveryRatePct}%</span></td>
+        </tr>
+      `;
+    }).join('');
+
+    circleBody.innerHTML = rows;
+
+    if (circleFoot) {
+      const totRecPct = totY > 0 ? ((totClr / totY) * 100).toFixed(2) : '0.00';
+      circleFoot.innerHTML = `
+        <tr class="table-total-row" style="font-weight: 700; border-top: 2px solid var(--border-color);">
+          <td><strong>TOTAL (${circleTable.length} CIRCLES)</strong></td>
+          <td class="text-right font-mono font-bold text-amber">${formatNum(totY)}</td>
+          <td class="text-right font-mono text-cyan font-bold">${formatNum(totC47)}</td>
+          <td class="text-right font-mono text-cyan font-bold">${formatNum(totC830)}</td>
+          <td class="text-right font-mono text-cyan font-bold">${formatNum(totCgt30)}</td>
+          <td class="text-right font-mono text-cyan font-bold">${formatNum(totCnever)}</td>
+          <td class="text-right font-mono font-bold text-emerald">${formatNum(totClr)}</td>
+          <td class="text-right font-mono font-bold text-rose">${formatNum(totNew)}</td>
+          <td class="text-right font-mono font-bold ${totNet <= 0 ? 'text-emerald' : 'text-rose'}">${totNet > 0 ? '+' : ''}${formatNum(totNet)}</td>
+          <td class="text-right font-mono font-bold text-amber">${formatNum(totT)}</td>
+          <td class="text-center font-mono"><span class="badge badge-success font-bold">${totRecPct}%</span></td>
+        </tr>
+      `;
+    }
+  }
+
+  // Populate Division Circle Dropdown
+  const divCircleSel = document.getElementById('churnDivisionCircleFilter');
+  if (divCircleSel && divCircleSel.options.length <= 1) {
+    const circles = Array.from(new Set(divisionTable.map(d => d.circle))).sort();
+    circles.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c;
+      opt.textContent = c;
+      divCircleSel.appendChild(opt);
+    });
+  }
+
+  renderDivisionChurnTable();
+
+  // 5. Table 4: 10-Day Historical Trend Accumulation Table (Circle, Division, Overall Daywise)
+  renderHistoricalTrendTable();
+
+  if (window.lucide) lucide.createIcons();
+}
+
+// State for 10-Day Historical Trend Table (Daywise Circle, Division, Overall)
+let trendTableState = {
+  activeView: 'circle', // 'circle' | 'division' | 'overall'
+  dateFilter: 'ALL',
+  circleFilter: 'ALL',
+  search: ''
+};
+
+function populateTrendFilters(data) {
+  if (!data) return;
+
+  const dateSel = document.getElementById('trendDateFilter');
+  const circleSel = document.getElementById('trendCircleFilter');
+
+  // Collect unique dates from circleTrendHistory / divisionTrendHistory / trendHistory
+  const datesSet = new Set();
+  (data.circleTrendHistory || []).forEach(r => { if (r.date) datesSet.add(r.date); });
+  (data.divisionTrendHistory || []).forEach(r => { if (r.date) datesSet.add(r.date); });
+  (data.trendHistory || []).forEach(r => { if (r.date) datesSet.add(r.date); });
+  const sortedDates = Array.from(datesSet).sort().reverse();
+
+  if (dateSel) {
+    const curVal = dateSel.value || 'ALL';
+    dateSel.innerHTML = '<option value="ALL">All Dates (' + sortedDates.length + ' Days)</option>';
+    sortedDates.forEach(d => {
+      const opt = document.createElement('option');
+      opt.value = d;
+      opt.textContent = d;
+      dateSel.appendChild(opt);
+    });
+    if (datesSet.has(curVal)) dateSel.value = curVal;
+    else dateSel.value = 'ALL';
+    trendTableState.dateFilter = dateSel.value;
+  }
+
+  // Collect unique circles
+  const circlesSet = new Set();
+  (data.circleTrendHistory || []).forEach(r => { if (r.circle) circlesSet.add(r.circle); });
+  (data.circleTable || []).forEach(r => { if (r.circle) circlesSet.add(r.circle); });
+  const sortedCircles = Array.from(circlesSet).sort();
+
+  if (circleSel) {
+    const curCircle = circleSel.value || 'ALL';
+    circleSel.innerHTML = '<option value="ALL">All Circles (' + sortedCircles.length + ' Circles)</option>';
+    sortedCircles.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c;
+      opt.textContent = c;
+      circleSel.appendChild(opt);
+    });
+    if (circlesSet.has(curCircle)) circleSel.value = curCircle;
+    else circleSel.value = 'ALL';
+    trendTableState.circleFilter = circleSel.value;
+  }
+}
+
+function renderHistoricalTrendTable() {
+  const data = dailyChurnState.data;
+  if (!data) return;
+
+  // Make sure filters are populated if not done yet
+  const dateSel = document.getElementById('trendDateFilter');
+  if (dateSel && dateSel.options.length <= 1) {
+    populateTrendFilters(data);
+  }
+
+  const thead = document.getElementById('trendHistoryTableHead');
+  const tbody = document.getElementById('trendHistoryTableBody');
+  const tfoot = document.getElementById('trendHistoryTableFoot');
+  const countBadge = document.getElementById('trendCountBadge');
+  const circleFilterGroup = document.getElementById('trendCircleFilterGroup');
+  const exportBtnText = document.getElementById('trendExportBtnText');
+
+  if (!tbody || !thead) return;
+
+  const view = trendTableState.activeView || 'circle';
+
+  // Toggle Circle filter visibility: visible for circle & division views
+  if (circleFilterGroup) {
+    circleFilterGroup.style.display = (view === 'overall') ? 'none' : 'flex';
+  }
+
+  // Update export button label
+  if (exportBtnText) {
+    if (view === 'circle') exportBtnText.textContent = 'Export Circle Trend CSV';
+    else if (view === 'division') exportBtnText.textContent = 'Export Division Trend CSV';
+    else exportBtnText.textContent = 'Export Overall Trend CSV';
+  }
+
+  // Handle CIRCLE-WISE DAYWISE VIEW (User requested 4 metrics: Total Non Comm, Today Addition, Today Clear, Net Addition)
+  if (view === 'circle') {
+    thead.innerHTML = `
+      <tr>
+        <th style="min-width: 110px;">Date</th>
+        <th style="min-width: 140px;">Circle</th>
+        <th class="text-right" style="min-width: 130px;">Total Non Comm</th>
+        <th class="text-right" style="min-width: 125px;">Today Addition</th>
+        <th class="text-right" style="min-width: 120px;">Today Clear</th>
+        <th class="text-right" style="min-width: 120px;">Net Addition</th>
+      </tr>
+    `;
+
+    let rows = (data.circleTrendHistory || []);
+
+    // Filter by Date
+    if (trendTableState.dateFilter && trendTableState.dateFilter !== 'ALL') {
+      rows = rows.filter(r => r.date === trendTableState.dateFilter);
+    }
+    // Filter by Circle
+    if (trendTableState.circleFilter && trendTableState.circleFilter !== 'ALL') {
+      rows = rows.filter(r => r.circle === trendTableState.circleFilter);
+    }
+    // Search
+    if (trendTableState.search) {
+      const q = trendTableState.search.toUpperCase();
+      rows = rows.filter(r => (r.circle && r.circle.toUpperCase().includes(q)) || (r.date && r.date.includes(q)));
+    }
+
+    // Sort: Date DESC, Circle ASC
+    rows.sort((a, b) => {
+      if (b.date !== a.date) return b.date.localeCompare(a.date);
+      return (a.circle || '').localeCompare(b.circle || '');
+    });
+
+    if (countBadge) countBadge.textContent = `Showing ${rows.length} circle records`;
+
+    if (rows.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center" style="padding: 24px; color: var(--text-muted);">No circle trend records matching selected filters.</td></tr>';
+      if (tfoot) tfoot.innerHTML = '';
+      return;
+    }
+
+    let totNonComm = 0, totAdd = 0, totClr = 0, totNet = 0;
+
+    tbody.innerHTML = rows.map(r => {
+      totNonComm += (r.totalNonComm || 0);
+      totAdd += (r.todayAddition || 0);
+      totClr += (r.todayClear || 0);
+      totNet += (r.netAddition || 0);
+
+      const netCls = (r.netAddition <= 0) ? 'text-emerald' : 'text-rose';
+      const netPrefix = (r.netAddition > 0) ? '+' : '';
+
+      return `
+        <tr>
+          <td><span class="mono-badge font-bold">${r.date}</span></td>
+          <td><strong>${r.circle}</strong></td>
+          <td class="text-right font-mono font-bold text-amber">${formatNum(r.totalNonComm)}</td>
+          <td class="text-right font-mono font-bold text-rose">${formatNum(r.todayAddition)}</td>
+          <td class="text-right font-mono font-bold text-emerald">${formatNum(r.todayClear)}</td>
+          <td class="text-right font-mono font-bold ${netCls}">${netPrefix}${formatNum(r.netAddition)}</td>
+        </tr>
+      `;
+    }).join('');
+
+    if (tfoot) {
+      const totNetCls = (totNet <= 0) ? 'text-emerald' : 'text-rose';
+      const totNetPrefix = (totNet > 0) ? '+' : '';
+      tfoot.innerHTML = `
+        <tr class="table-total-row" style="font-weight: 700; background: rgba(255, 255, 255, 0.05); border-top: 2px solid var(--border-color);">
+          <td><strong>TOTAL (${rows.length} ROWS)</strong></td>
+          <td>--</td>
+          <td class="text-right font-mono font-bold text-amber">${formatNum(totNonComm)}</td>
+          <td class="text-right font-mono font-bold text-rose">${formatNum(totAdd)}</td>
+          <td class="text-right font-mono font-bold text-emerald">${formatNum(totClr)}</td>
+          <td class="text-right font-mono font-bold ${totNetCls}">${totNetPrefix}${formatNum(totNet)}</td>
+        </tr>
+      `;
+    }
+  }
+
+  // Handle DIVISION-WISE DAYWISE VIEW (User requested 4 metrics: Total Non Comm, Today Addition, Today Clear, Net Addition)
+  else if (view === 'division') {
+    thead.innerHTML = `
+      <tr>
+        <th style="min-width: 110px;">Date</th>
+        <th style="min-width: 140px;">Circle</th>
+        <th style="min-width: 150px;">Division</th>
+        <th class="text-right" style="min-width: 130px;">Total Non Comm</th>
+        <th class="text-right" style="min-width: 125px;">Today Addition</th>
+        <th class="text-right" style="min-width: 120px;">Today Clear</th>
+        <th class="text-right" style="min-width: 120px;">Net Addition</th>
+      </tr>
+    `;
+
+    let rows = (data.divisionTrendHistory || []);
+
+    // Filter by Date
+    if (trendTableState.dateFilter && trendTableState.dateFilter !== 'ALL') {
+      rows = rows.filter(r => r.date === trendTableState.dateFilter);
+    }
+    // Filter by Circle
+    if (trendTableState.circleFilter && trendTableState.circleFilter !== 'ALL') {
+      rows = rows.filter(r => r.circle === trendTableState.circleFilter);
+    }
+    // Search
+    if (trendTableState.search) {
+      const q = trendTableState.search.toUpperCase();
+      rows = rows.filter(r => 
+        (r.division && r.division.toUpperCase().includes(q)) ||
+        (r.circle && r.circle.toUpperCase().includes(q)) ||
+        (r.date && r.date.includes(q))
+      );
+    }
+
+    // Sort: Date DESC, Circle ASC, Division ASC
+    rows.sort((a, b) => {
+      if (b.date !== a.date) return b.date.localeCompare(a.date);
+      if (a.circle !== b.circle) return (a.circle || '').localeCompare(b.circle || '');
+      return (a.division || '').localeCompare(b.division || '');
+    });
+
+    if (countBadge) countBadge.textContent = `Showing ${rows.length} division records`;
+
+    if (rows.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" class="text-center" style="padding: 24px; color: var(--text-muted);">No division trend records matching selected filters.</td></tr>';
+      if (tfoot) tfoot.innerHTML = '';
+      return;
+    }
+
+    let totNonComm = 0, totAdd = 0, totClr = 0, totNet = 0;
+
+    tbody.innerHTML = rows.map(r => {
+      totNonComm += (r.totalNonComm || 0);
+      totAdd += (r.todayAddition || 0);
+      totClr += (r.todayClear || 0);
+      totNet += (r.netAddition || 0);
+
+      const netCls = (r.netAddition <= 0) ? 'text-emerald' : 'text-rose';
+      const netPrefix = (r.netAddition > 0) ? '+' : '';
+
+      return `
+        <tr>
+          <td><span class="mono-badge font-bold">${r.date}</span></td>
+          <td><strong>${r.circle}</strong></td>
+          <td><span class="mono-badge">${r.division}</span></td>
+          <td class="text-right font-mono font-bold text-amber">${formatNum(r.totalNonComm)}</td>
+          <td class="text-right font-mono font-bold text-rose">${formatNum(r.todayAddition)}</td>
+          <td class="text-right font-mono font-bold text-emerald">${formatNum(r.todayClear)}</td>
+          <td class="text-right font-mono font-bold ${netCls}">${netPrefix}${formatNum(r.netAddition)}</td>
+        </tr>
+      `;
+    }).join('');
+
+    if (tfoot) {
+      const totNetCls = (totNet <= 0) ? 'text-emerald' : 'text-rose';
+      const totNetPrefix = (totNet > 0) ? '+' : '';
+      tfoot.innerHTML = `
+        <tr class="table-total-row" style="font-weight: 700; background: rgba(255, 255, 255, 0.05); border-top: 2px solid var(--border-color);">
+          <td><strong>TOTAL (${rows.length} ROWS)</strong></td>
+          <td>--</td>
+          <td>--</td>
+          <td class="text-right font-mono font-bold text-amber">${formatNum(totNonComm)}</td>
+          <td class="text-right font-mono font-bold text-rose">${formatNum(totAdd)}</td>
+          <td class="text-right font-mono font-bold text-emerald">${formatNum(totClr)}</td>
+          <td class="text-right font-mono font-bold ${totNetCls}">${totNetPrefix}${formatNum(totNet)}</td>
+        </tr>
+      `;
+    }
+  }
+
+  // Handle OVERALL TREND VIEW
+  else {
+    thead.innerHTML = `
+      <tr>
+        <th style="min-width: 105px;">Date</th>
+        <th style="min-width: 180px;">Compared With</th>
+        <th style="min-width: 100px;">Category</th>
+        <th class="text-right" style="min-width: 130px;">Base Silent (Yesterday)</th>
+        <th class="text-right">Cleared (4-7D)</th>
+        <th class="text-right">Cleared (8-15D)</th>
+        <th class="text-right">Cleared (16-30D)</th>
+        <th class="text-right">Cleared (>30D)</th>
+        <th class="text-right">Cleared (Never)</th>
+        <th class="text-right font-bold text-emerald">Total Cleared</th>
+        <th class="text-right font-bold text-rose">New Additions</th>
+        <th class="text-right font-bold">Net Change</th>
+        <th class="text-right font-bold text-amber">Ending Silent</th>
+        <th class="text-center">Recovery %</th>
+      </tr>
+    `;
+
+    let rows = (data.trendHistory || []);
+
+    if (trendTableState.dateFilter && trendTableState.dateFilter !== 'ALL') {
+      rows = rows.filter(r => r.date === trendTableState.dateFilter);
+    }
+    if (trendTableState.search) {
+      const q = trendTableState.search.toUpperCase();
+      rows = rows.filter(r => (r.category && r.category.toUpperCase().includes(q)) || (r.date && r.date.includes(q)));
+    }
+
+    if (countBadge) countBadge.textContent = `Showing ${rows.length} overall cycles`;
+
+    if (rows.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="14" class="text-center" style="padding: 24px; color: var(--text-muted);">No multi-day history accumulated yet. Trend accumulates automatically with each daily sync cycle.</td></tr>';
+      if (tfoot) tfoot.innerHTML = '';
+      return;
+    }
+
+    tbody.innerHTML = rows.map(r => {
+      const netCls = (r.netChange <= 0) ? 'text-emerald' : 'text-rose';
+      const netPrefix = (r.netChange > 0) ? '+' : '';
+      return `
+        <tr>
+          <td><strong>${r.date}</strong></td>
+          <td><span class="mono-badge text-muted">${r.compareDate} [Yesterday Last Sync]</span></td>
+          <td><span class="badge badge-info" style="text-transform: uppercase;">${r.category}</span></td>
+          <td class="text-right font-mono font-bold text-amber">${formatNum(r.yesterdaySilent)}</td>
+          <td class="text-right font-mono text-cyan">${formatNum(r.cleared_4_7d || 0)}</td>
+          <td class="text-right font-mono text-cyan">${formatNum(r.cleared_8_15d || 0)}</td>
+          <td class="text-right font-mono text-cyan">${formatNum(r.cleared_16_30d || 0)}</td>
+          <td class="text-right font-mono text-cyan">${formatNum(r.cleared_gt30d || 0)}</td>
+          <td class="text-right font-mono text-cyan">${formatNum(r.cleared_never || 0)}</td>
+          <td class="text-right font-mono font-bold text-emerald">${formatNum(r.clearedToday)}</td>
+          <td class="text-right font-mono font-bold text-rose">${formatNum(r.newAdditionsToday)}</td>
+          <td class="text-right font-mono font-bold ${netCls}">${netPrefix}${formatNum(r.netChange)}</td>
+          <td class="text-right font-mono font-bold text-amber">${formatNum(r.todaySilent)}</td>
+          <td class="text-center font-mono"><span class="badge ${Number(r.recoveryRatePct) >= 5 ? 'badge-success' : 'badge-secondary'}">${r.recoveryRatePct}%</span></td>
+        </tr>
+      `;
+    }).join('');
+
+    if (tfoot) tfoot.innerHTML = '';
+  }
+}
+
+function renderDivisionChurnTable() {
+  const data = dailyChurnState.data;
+  if (!data) return;
+
+  const divisionTable = data.divisionTable || [];
+  const divCircleSel = document.getElementById('churnDivisionCircleFilter');
+  const selCircle = divCircleSel ? divCircleSel.value : 'ALL';
+  const searchInput = document.getElementById('churnDivisionSearch');
+  const searchTerm = searchInput ? searchInput.value.trim().toUpperCase() : '';
+
+  let filtered = divisionTable;
+  if (selCircle && selCircle !== 'ALL') {
+    filtered = filtered.filter(d => d.circle === selCircle);
+  }
+  if (searchTerm) {
+    filtered = filtered.filter(d => (d.division && d.division.toUpperCase().includes(searchTerm)) || (d.circle && d.circle.toUpperCase().includes(searchTerm)));
+  }
+
+  const countHeader = document.getElementById('churnDivisionCountHeader');
+  if (countHeader) {
+    countHeader.textContent = `Showing ${filtered.length} of ${divisionTable.length} divisions${selCircle !== 'ALL' ? ' (' + selCircle + ')' : ''}`;
+  }
+
+  const divisionBody = document.getElementById('divisionChurnTableBody');
+  if (!divisionBody) return;
+
+  if (filtered.length === 0) {
+    divisionBody.innerHTML = '<tr><td colspan="12" class="text-center" style="padding: 20px; color: var(--text-muted);">No divisions matching filters</td></tr>';
+    return;
+  }
+
+  let totY = 0, totC47 = 0, totC830 = 0, totCgt30 = 0, totCnever = 0, totClr = 0, totNew = 0, totNet = 0, totT = 0;
+
+  const rows = filtered.map(row => {
+    totY += row.yesterdaySilent;
+    totC47 += row.cleared_4_7d;
+    totC830 += row.cleared_8_30d;
+    totCgt30 += row.cleared_gt30d;
+    totCnever += row.cleared_never;
+    totClr += row.clearedToday;
+    totNew += row.newAdditionsToday;
+    totNet += row.netChange;
+    totT += row.todaySilent;
+
+    return `
+      <tr>
+        <td><strong>${row.circle}</strong></td>
+        <td><span class="mono-badge">${row.division}</span></td>
+        <td class="text-right font-mono font-bold text-amber">${formatNum(row.yesterdaySilent)}</td>
+        <td class="text-right font-mono text-cyan">${formatNum(row.cleared_4_7d)}</td>
+        <td class="text-right font-mono text-cyan">${formatNum(row.cleared_8_30d)}</td>
+        <td class="text-right font-mono text-cyan">${formatNum(row.cleared_gt30d)}</td>
+        <td class="text-right font-mono text-cyan">${formatNum(row.cleared_never)}</td>
+        <td class="text-right font-mono font-bold text-emerald">${formatNum(row.clearedToday)}</td>
+        <td class="text-right font-mono font-bold text-rose">${formatNum(row.newAdditionsToday)}</td>
+        <td class="text-right font-mono font-bold ${row.netChange <= 0 ? 'text-emerald' : 'text-rose'}">${row.netChange > 0 ? '+' : ''}${formatNum(row.netChange)}</td>
+        <td class="text-right font-mono font-bold text-amber">${formatNum(row.todaySilent)}</td>
+        <td class="text-center font-mono"><span class="badge ${Number(row.recoveryRatePct) >= 5 ? 'badge-success' : 'badge-secondary'}">${row.recoveryRatePct}%</span></td>
+      </tr>
+    `;
+  }).join('');
+
+  const totRecPct = totY > 0 ? ((totClr / totY) * 100).toFixed(2) : '0.00';
+  const totalRow = `
+    <tr class="table-total-row" style="font-weight: 700; background: rgba(255,255,255,0.06); border-top: 2px solid var(--border-color);">
+      <td><strong>TOTAL (${filtered.length} DIVISIONS)</strong></td>
+      <td>--</td>
+      <td class="text-right font-mono font-bold text-amber">${formatNum(totY)}</td>
+      <td class="text-right font-mono text-cyan font-bold">${formatNum(totC47)}</td>
+      <td class="text-right font-mono text-cyan font-bold">${formatNum(totC830)}</td>
+      <td class="text-right font-mono text-cyan font-bold">${formatNum(totCgt30)}</td>
+      <td class="text-right font-mono text-cyan font-bold">${formatNum(totCnever)}</td>
+      <td class="text-right font-mono font-bold text-emerald">${formatNum(totClr)}</td>
+      <td class="text-right font-mono font-bold text-rose">${formatNum(totNew)}</td>
+      <td class="text-right font-mono font-bold ${totNet <= 0 ? 'text-emerald' : 'text-rose'}">${totNet > 0 ? '+' : ''}${formatNum(totNet)}</td>
+      <td class="text-right font-mono font-bold text-amber">${formatNum(totT)}</td>
+      <td class="text-center font-mono"><span class="badge badge-success font-bold">${totRecPct}%</span></td>
+    </tr>
+  `;
+
+  divisionBody.innerHTML = rows + totalRow;
+}
+
+function filterChurnDivisionByCircle(circleName) {
+  const sel = document.getElementById('churnDivisionCircleFilter');
+  if (sel) {
+    sel.value = circleName;
+    renderDivisionChurnTable();
+  }
+}
+window.filterChurnDivisionByCircle = filterChurnDivisionByCircle;
+
+window.exportChurnData = function(type) {
+  const cat = (state.category === 'complaint') ? 'consumer' : state.category;
+  window.open(`/api/export/daily-churn?category=${cat}&type=${type}`, '_blank');
+};
+
+window.exportCurrentTrendData = function() {
+  const cat = (state.category === 'complaint') ? 'consumer' : state.category;
+  let type = 'trend';
+  if (trendTableState.activeView === 'circle') type = 'circle_trend';
+  else if (trendTableState.activeView === 'division') type = 'division_trend';
+  window.open(`/api/export/daily-churn?category=${cat}&type=${type}`, '_blank');
+};
+
+function setupDailyChurnEventListeners() {
+  // Division Table Circle & Search Filters
+  const divCircleSel = document.getElementById('churnDivisionCircleFilter');
+  if (divCircleSel) {
+    divCircleSel.addEventListener('change', renderDivisionChurnTable);
+  }
+  const searchInput = document.getElementById('churnDivisionSearch');
+  if (searchInput) {
+    searchInput.addEventListener('input', renderDivisionChurnTable);
+  }
+
+  // Trend View Switcher Buttons (Overall / Circle / Division)
+  const btnOverall = document.getElementById('btnTrendOverall');
+  const btnCircle = document.getElementById('btnTrendCircle');
+  const btnDivision = document.getElementById('btnTrendDivision');
+  const switcherBtns = [btnOverall, btnCircle, btnDivision].filter(Boolean);
+
+  switcherBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const targetView = btn.getAttribute('data-view');
+      if (!targetView) return;
+      trendTableState.activeView = targetView;
+
+      switcherBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      renderHistoricalTrendTable();
+    });
+  });
+
+  // Trend Filter Controls
+  const trendDateSel = document.getElementById('trendDateFilter');
+  if (trendDateSel) {
+    trendDateSel.addEventListener('change', (e) => {
+      trendTableState.dateFilter = e.target.value;
+      renderHistoricalTrendTable();
+    });
+  }
+
+  const trendCircleSel = document.getElementById('trendCircleFilter');
+  if (trendCircleSel) {
+    trendCircleSel.addEventListener('change', (e) => {
+      trendTableState.circleFilter = e.target.value;
+      renderHistoricalTrendTable();
+    });
+  }
+
+  const trendSearch = document.getElementById('trendSearchInput');
+  if (trendSearch) {
+    trendSearch.addEventListener('input', (e) => {
+      trendTableState.search = e.target.value.trim();
+      renderHistoricalTrendTable();
+    });
+  }
+}
+
+// ==========================================================================
+// INSTANT TABLE SCREENSHOT & CLIPBOARD SHARING MODULE
+// Takes crisp high-resolution screenshot of summary table card and writes to
+// system clipboard (PNG) for immediate pasting (Ctrl+V) into WhatsApp, Teams, Email.
+// ==========================================================================
+
+async function copyTableScreenshot(cardId, defaultFilename = 'Table_Summary', btn = null) {
+  const card = document.getElementById(cardId);
+  if (!card) {
+    showToast('Table container not found', 'error');
+    return;
+  }
+
+  if (typeof html2canvas === 'undefined') {
+    showToast('Screenshot engine loading... please retry in a moment.', 'warning');
+    return;
+  }
+
+  // 1. Button loading state
+  let origBtnHtml = '';
+  if (btn) {
+    origBtnHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.classList.add('capturing');
+    btn.innerHTML = `<i data-lucide="loader-2" class="spin"></i> <span>Snapping...</span>`;
+    if (window.lucide) lucide.createIcons();
+  }
+
+  // 2. Prepare deferred promise for modern Chrome/Edge ClipboardItem
+  // Calling navigator.clipboard.write SYNCHRONOUSLY inside user click handler ensures
+  // transient user activation does NOT expire during html2canvas rendering!
+  let resolveBlob, rejectBlob;
+  const blobPromise = new Promise((resolve, reject) => {
+    resolveBlob = resolve;
+    rejectBlob = reject;
+  });
+
+  let clipboardWritePromise = null;
+  if (navigator.clipboard && window.ClipboardItem) {
+    try {
+      clipboardWritePromise = navigator.clipboard.write([
+        new ClipboardItem({ 'image/png': blobPromise })
+      ]);
+    } catch (err) {
+      console.warn('Initial clipboard write initiation failed:', err);
+    }
+  }
+
+  // 3. Prepare elements for clean screenshot:
+  // - Temporarily hide action buttons so they don't appear in screenshot
+  // - Temporarily unconstrain table overflow so wide tables aren't cut off
+  const actionContainers = card.querySelectorAll('.table-actions, .btn-snap, .no-print');
+  const responsiveContainers = card.querySelectorAll('.table-responsive');
+  
+  const savedRcStyles = [];
+  responsiveContainers.forEach((rc) => {
+    savedRcStyles.push({
+      overflow: rc.style.overflow,
+      maxWidth: rc.style.maxWidth,
+      width: rc.style.width,
+      display: rc.style.display
+    });
+    rc.style.overflow = 'visible';
+    rc.style.maxWidth = 'none';
+    rc.style.width = 'fit-content';
+    rc.style.minWidth = '100%';
+  });
+
+  const savedCardStyle = {
+    width: card.style.width,
+    minWidth: card.style.minWidth,
+    boxShadow: card.style.boxShadow,
+    borderRadius: card.style.borderRadius
+  };
+
+  actionContainers.forEach(el => {
+    el.style.visibility = 'hidden';
+  });
+
+  const targetWidth = Math.max(card.scrollWidth, card.offsetWidth, 1050);
+  card.style.width = targetWidth + 'px';
+  card.style.minWidth = targetWidth + 'px';
+  card.style.borderRadius = '12px';
+
+  const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+  const bgColor = isDark ? '#0b1120' : '#ffffff';
+
+  try {
+    // 4. Render Canvas at scale 1.5 (Crisp retina resolution, taint-free)
+    const canvas = await html2canvas(card, {
+      backgroundColor: bgColor,
+      scale: 1.5,
+      useCORS: true,
+      allowTaint: false,
+      foreignObjectRendering: false,
+      logging: false,
+      scrollX: 0,
+      scrollY: 0,
+      windowWidth: targetWidth + 60
+    });
+
+    // 5. Restore original DOM styles immediately
+    responsiveContainers.forEach((rc, idx) => {
+      rc.style.overflow = savedRcStyles[idx].overflow;
+      rc.style.maxWidth = savedRcStyles[idx].maxWidth;
+      rc.style.width = savedRcStyles[idx].width;
+      rc.style.display = savedRcStyles[idx].display;
+    });
+    card.style.width = savedCardStyle.width;
+    card.style.minWidth = savedCardStyle.minWidth;
+    card.style.boxShadow = savedCardStyle.boxShadow;
+    card.style.borderRadius = savedCardStyle.borderRadius;
+    actionContainers.forEach(el => {
+      el.style.visibility = '';
+    });
+
+    // 6. Robust binary Blob generation with DataURL fallback
+    function dataUrlToBlob(url) {
+      try {
+        const arr = url.split(',');
+        const mime = arr[0].match(/:(.*?);/)[1];
+        const bstr = atob(arr[1]);
+        let n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        while (n--) {
+          u8arr[n] = bstr.charCodeAt(n);
+        }
+        return new Blob([u8arr], { type: mime });
+      } catch (e) {
+        console.error('dataUrlToBlob failed:', e);
+        return null;
+      }
+    }
+
+    let blob = null;
+    try {
+      blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+    } catch (e) {
+      console.warn('canvas.toBlob failed, trying fallback:', e);
+    }
+
+    let dataUrl = '';
+    try {
+      dataUrl = canvas.toDataURL('image/png');
+      if (!blob && dataUrl) {
+        blob = dataUrlToBlob(dataUrl);
+      }
+    } catch (e) {
+      console.warn('toDataURL failed:', e);
+    }
+
+    if (!blob) {
+      if (rejectBlob) rejectBlob(new Error('Failed to create image blob'));
+      showToast('Failed to create snapshot image', 'error');
+      resetBtn();
+      return;
+    }
+
+    // Resolve deferred blob promise to complete clipboard write
+    if (resolveBlob) resolveBlob(blob);
+
+    let wasCopied = false;
+    if (clipboardWritePromise) {
+      try {
+        await clipboardWritePromise;
+        wasCopied = true;
+      } catch (clipErr) {
+        console.warn('Promise-based clipboard write failed:', clipErr);
+      }
+    }
+
+    // Update button state
+    if (btn) {
+      btn.disabled = false;
+      btn.classList.remove('capturing');
+      btn.innerHTML = wasCopied ? `<i data-lucide="check"></i> <span>Copied! (Ctrl+V)</span>` : `<i data-lucide="camera"></i> <span>Snapshot Ready</span>`;
+      if (wasCopied) btn.style.background = 'linear-gradient(135deg, #059669, #047857)';
+      if (window.lucide) lucide.createIcons();
+      setTimeout(resetBtn, 3000);
+    }
+
+    if (wasCopied) {
+      showToast('✓ Table screenshot copied to clipboard! Paste directly (Ctrl + V)', 'success');
+    } else {
+      showToast('Snapshot ready! Click Download or Copy below.', 'info');
+    }
+
+    // 7. Show Snapshot Preview Modal with direct copy & download options
+    showSnapshotPreviewModal(blob, dataUrl, defaultFilename, wasCopied);
+
+  } catch (err) {
+    console.error('Snapshot capture failed:', err);
+    if (rejectBlob) rejectBlob(err);
+    responsiveContainers.forEach((rc, idx) => {
+      rc.style.overflow = savedRcStyles[idx].overflow;
+      rc.style.maxWidth = savedRcStyles[idx].maxWidth;
+      rc.style.width = savedRcStyles[idx].width;
+      rc.style.display = savedRcStyles[idx].display;
+    });
+    card.style.width = savedCardStyle.width;
+    card.style.minWidth = savedCardStyle.minWidth;
+    actionContainers.forEach(el => {
+      el.style.visibility = '';
+    });
+    showToast('Snapshot failed: ' + err.message, 'error');
+    resetBtn();
+  }
+
+  function resetBtn() {
+    if (btn) {
+      btn.disabled = false;
+      btn.classList.remove('capturing');
+      btn.innerHTML = origBtnHtml;
+      btn.style.background = '';
+      if (window.lucide) lucide.createIcons();
+    }
+  }
+}
+window.copyTableScreenshot = copyTableScreenshot;
+
+// Modal dialog showing captured screenshot with 1-click Copy & Download
+function showSnapshotPreviewModal(blob, dataUrl, filename, wasCopied) {
+  let modal = document.getElementById('tableSnapshotModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'tableSnapshotModal';
+    modal.className = 'snapshot-modal-overlay';
+    document.body.appendChild(modal);
+  }
+
+  const dateStr = new Date().toISOString().slice(0, 10);
+  const fullName = `${filename}_${dateStr}`;
+
+  modal.innerHTML = `
+    <div class="snapshot-modal-card card">
+      <div class="snapshot-modal-header">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div class="badge-icon-snap"><i data-lucide="camera"></i></div>
+          <div>
+            <h4 style="margin: 0; font-size: 0.95rem; font-weight: 700;">Table Screenshot Ready for Management</h4>
+            <p style="margin: 0; font-size: 0.75rem; color: var(--text-muted);">${fullName}.png</p>
+          </div>
+        </div>
+        <button class="btn-icon" id="btnCloseSnapshotModal" style="width: 32px; height: 32px; border-radius: 6px;"><i data-lucide="x"></i></button>
+      </div>
+
+      <div class="snapshot-modal-status ${wasCopied ? 'status-copied' : 'status-pending'}">
+        <i data-lucide="${wasCopied ? 'check-circle' : 'info'}"></i>
+        <span>${wasCopied 
+          ? '✓ <strong>Copied directly to clipboard!</strong> You can now switch to WhatsApp, Teams, or Email and press <strong>Ctrl + V</strong>.' 
+          : '⚠️ Clipboard write requires user confirmation. Click <strong>Copy Image to Clipboard</strong> or <strong>Download PNG</strong> below.'}</span>
+      </div>
+
+      <div class="snapshot-img-container">
+        <img src="${dataUrl}" alt="Table Screenshot Preview" id="snapshotPreviewImg" title="Right-click and select 'Copy image' to paste anywhere" />
+      </div>
+
+      <div class="snapshot-modal-footer">
+        <span style="font-size: 0.76rem; color: var(--text-muted); display: flex; align-items: center; gap: 4px;">
+          <i data-lucide="mouse-pointer"></i> Tip: You can also right-click the image preview above and choose <em>"Copy Image"</em>.
+        </span>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn btn-sm btn-primary" id="btnSnapshotModalCopy">
+            <i data-lucide="copy"></i> Copy Image (Ctrl+V)
+          </button>
+          <button class="btn btn-sm btn-secondary" id="btnSnapshotModalDownload">
+            <i data-lucide="download"></i> Download PNG
+          </button>
+          <button class="btn btn-sm btn-outline" id="btnSnapshotModalClose">
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  modal.classList.add('active');
+  if (window.lucide) lucide.createIcons();
+
+  // Close handlers
+  const closeModal = () => modal.classList.remove('active');
+  modal.querySelector('#btnCloseSnapshotModal')?.addEventListener('click', closeModal);
+  modal.querySelector('#btnSnapshotModalClose')?.addEventListener('click', closeModal);
+  modal.onclick = (e) => { if (e.target === modal) closeModal(); };
+
+  // Copy button inside modal (Fresh user click gesture)
+  const copyBtn = modal.querySelector('#btnSnapshotModalCopy');
+  if (copyBtn) {
+    copyBtn.addEventListener('click', async () => {
+      try {
+        if (navigator.clipboard && window.ClipboardItem) {
+          await navigator.clipboard.write([
+            new ClipboardItem({ 'image/png': blob })
+          ]);
+          showToast('✓ Image copied to clipboard! Paste directly (Ctrl + V)', 'success');
+          copyBtn.innerHTML = '<i data-lucide="check"></i> Copied to Clipboard!';
+          copyBtn.style.background = 'linear-gradient(135deg, #059669, #047857)';
+          if (window.lucide) lucide.createIcons();
+          setTimeout(() => {
+            copyBtn.innerHTML = '<i data-lucide="copy"></i> Copy Image (Ctrl+V)';
+            copyBtn.style.background = '';
+            if (window.lucide) lucide.createIcons();
+          }, 2500);
+        }
+      } catch (err) {
+        showToast('Clipboard write failed: ' + err.message + '. Please use Download PNG.', 'error');
+      }
+    });
+  }
+
+  // Download button inside modal
+  const dlBtn = modal.querySelector('#btnSnapshotModalDownload');
+  if (dlBtn) {
+    dlBtn.addEventListener('click', () => {
+      const a = document.createElement('a');
+      a.href = dataUrl;
+      a.download = `${fullName}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      showToast('✓ High-res PNG image downloaded', 'info');
+    });
+  }
+}
+window.showSnapshotPreviewModal = showSnapshotPreviewModal;
 

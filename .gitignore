@@ -48,5 +48,9 @@ Thumbs.db
 test_*.js
 inspect_*.js
 explore_*.js
+benchmark_*.js
+capture_*.js
+compare_*.js
+find_*.js
 add_complaints_table.js
 create_latest_complaint_table.js
