@@ -1,5 +1,255 @@
 [
   {
+    "date": "2026-10-21",
+    "compareDate": "2026-10-19",
+    "category": "consumer",
+    "circle": "ARRAH",
+    "totalNonComm": 9911,
+    "todayAddition": 369,
+    "todayClear": 164,
+    "netAddition": 205
+  },
+  {
+    "date": "2026-10-21",
+    "compareDate": "2026-10-19",
+    "category": "dt",
+    "circle": "ARRAH",
+    "totalNonComm": 203,
+    "todayAddition": 0,
+    "todayClear": 0,
+    "netAddition": 0
+  },
+  {
+    "date": "2026-10-21",
+    "compareDate": "2026-10-19",
+    "category": "feeder",
+    "circle": "ARRAH",
+    "totalNonComm": 22,
+    "todayAddition": 1,
+    "todayClear": 1,
+    "netAddition": 0
+  },
+  {
+    "date": "2026-10-21",
+    "compareDate": "2026-10-19",
+    "category": "consumer",
+    "circle": "AURANGABAD",
+    "totalNonComm": 8690,
+    "todayAddition": 319,
+    "todayClear": 159,
+    "netAddition": 160
+  },
+  {
+    "date": "2026-10-21",
+    "compareDate": "2026-10-19",
+    "category": "dt",
+    "circle": "AURANGABAD",
+    "totalNonComm": 417,
+    "todayAddition": 0,
+    "todayClear": 0,
+    "netAddition": 0
+  },
+  {
+    "date": "2026-10-21",
+    "compareDate": "2026-10-19",
+    "category": "feeder",
+    "circle": "AURANGABAD",
+    "totalNonComm": 32,
+    "todayAddition": 0,
+    "todayClear": 0,
+    "netAddition": 0
+  },
+  {
+    "date": "2026-10-21",
+    "compareDate": "2026-10-19",
+    "category": "consumer",
+    "circle": "BIHARSARIF",
+    "totalNonComm": 8079,
+    "todayAddition": 419,
+    "todayClear": 288,
+    "netAddition": 131
+  },
+  {
+    "date": "2026-10-21",
+    "compareDate": "2026-10-19",
+    "category": "dt",
+    "circle": "BIHARSARIF",
+    "totalNonComm": 1493,
+    "todayAddition": 0,
+    "todayClear": 0,
+    "netAddition": 0
+  },
+  {
+    "date": "2026-10-21",
+    "compareDate": "2026-10-19",
+    "category": "feeder",
+    "circle": "BIHARSARIF",
+    "totalNonComm": 40,
+    "todayAddition": 0,
+    "todayClear": 0,
+    "netAddition": 0
+  },
+  {
+    "date": "2026-10-21",
+    "compareDate": "2026-10-19",
+    "category": "consumer",
+    "circle": "GAYA",
+    "totalNonComm": 17088,
+    "todayAddition": 824,
+    "todayClear": 458,
+    "netAddition": 366
+  },
+  {
+    "date": "2026-10-21",
+    "compareDate": "2026-10-19",
+    "category": "dt",
+    "circle": "GAYA",
+    "totalNonComm": 1139,
+    "todayAddition": 0,
+    "todayClear": 0,
+    "netAddition": 0
+  },
+  {
+    "date": "2026-10-21",
+    "compareDate": "2026-10-19",
+    "category": "feeder",
+    "circle": "GAYA",
+    "totalNonComm": 79,
+    "todayAddition": 1,
+    "todayClear": 0,
+    "netAddition": 1
+  },
+  {
+    "date": "2026-10-21",
+    "compareDate": "2026-10-19",
+    "category": "consumer",
+    "circle": "MUNGER",
+    "totalNonComm": 4666,
+    "todayAddition": 198,
+    "todayClear": 64,
+    "netAddition": 134
+  },
+  {
+    "date": "2026-10-21",
+    "compareDate": "2026-10-19",
+    "category": "dt",
+    "circle": "MUNGER",
+    "totalNonComm": 1286,
+    "todayAddition": 0,
+    "todayClear": 0,
+    "netAddition": 0
+  },
+  {
+    "date": "2026-10-21",
+    "compareDate": "2026-10-19",
+    "category": "feeder",
+    "circle": "MUNGER",
+    "totalNonComm": 41,
+    "todayAddition": 1,
+    "todayClear": 0,
+    "netAddition": 1
+  },
+  {
+    "date": "2026-10-21",
+    "compareDate": "2026-10-19",
+    "category": "consumer",
+    "circle": "PATNA",
+    "totalNonComm": 9715,
+    "todayAddition": 498,
+    "todayClear": 350,
+    "netAddition": 148
+  },
+  {
+    "date": "2026-10-21",
+    "compareDate": "2026-10-19",
+    "category": "dt",
+    "circle": "PATNA",
+    "totalNonComm": 1362,
+    "todayAddition": 0,
+    "todayClear": 0,
+    "netAddition": 0
+  },
+  {
+    "date": "2026-10-21",
+    "compareDate": "2026-10-19",
+    "category": "feeder",
+    "circle": "PATNA",
+    "totalNonComm": 42,
+    "todayAddition": 1,
+    "todayClear": 0,
+    "netAddition": 1
+  },
+  {
+    "date": "2026-10-21",
+    "compareDate": "2026-10-19",
+    "category": "dt",
+    "circle": "PESU EAST",
+    "totalNonComm": 52,
+    "todayAddition": 0,
+    "todayClear": 0,
+    "netAddition": 0
+  },
+  {
+    "date": "2026-10-21",
+    "compareDate": "2026-10-19",
+    "category": "feeder",
+    "circle": "PESU EAST",
+    "totalNonComm": 38,
+    "todayAddition": 2,
+    "todayClear": 0,
+    "netAddition": 2
+  },
+  {
+    "date": "2026-10-21",
+    "compareDate": "2026-10-19",
+    "category": "dt",
+    "circle": "PESU WEST",
+    "totalNonComm": 96,
+    "todayAddition": 0,
+    "todayClear": 0,
+    "netAddition": 0
+  },
+  {
+    "date": "2026-10-21",
+    "compareDate": "2026-10-19",
+    "category": "feeder",
+    "circle": "PESU WEST",
+    "totalNonComm": 42,
+    "todayAddition": 3,
+    "todayClear": 0,
+    "netAddition": 3
+  },
+  {
+    "date": "2026-10-21",
+    "compareDate": "2026-10-19",
+    "category": "consumer",
+    "circle": "SASARAM",
+    "totalNonComm": 11579,
+    "todayAddition": 377,
+    "todayClear": 327,
+    "netAddition": 50
+  },
+  {
+    "date": "2026-10-21",
+    "compareDate": "2026-10-19",
+    "category": "dt",
+    "circle": "SASARAM",
+    "totalNonComm": 590,
+    "todayAddition": 0,
+    "todayClear": 1,
+    "netAddition": -1
+  },
+  {
+    "date": "2026-10-21",
+    "compareDate": "2026-10-19",
+    "category": "feeder",
+    "circle": "SASARAM",
+    "totalNonComm": 58,
+    "todayAddition": 0,
+    "todayClear": 0,
+    "netAddition": 0
+  },
+  {
     "date": "2026-10-19",
     "compareDate": "2026-10-17",
     "category": "consumer",
